@@ -185,7 +185,7 @@ void loop() {
     }
   } else {
     if (buttonPinCurrent == LOW) {
-      if (held >= 200) {
+      if (held >= 500) {
         for (int i = 0; i < 24; i++) {
           inputs[i].doPress();
         }
