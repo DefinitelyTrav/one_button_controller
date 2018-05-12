@@ -177,7 +177,7 @@ void loop() {
       digitalWrite(LED2, HIGH);
     }
     if (currentCode[5] == ' ') {
-      digitalWrite(LED1, HIGH);
+      analogWrite(LED1, HIGH);
       digitalWrite(LED2, HIGH);
     }
     for (int i = 0; i < 24; i++) {
@@ -185,8 +185,10 @@ void loop() {
     }
   } else {
     if (buttonPinCurrent == LOW) {
-      for (int i = 0; i < 24; i++) {
-        inputs[i].doPress();
+      if (held >= 200) {
+        for (int i = 0; i < 24; i++) {
+          inputs[i].doPress();
+        }
       }
     } else {
       Keyboard.releaseAll();
