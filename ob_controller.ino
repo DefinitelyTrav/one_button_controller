@@ -177,7 +177,7 @@ void loop() {
       digitalWrite(LED2, HIGH);
     }
     if (currentCode[5] == ' ') {
-      analogWrite(LED1, HIGH);
+      digitalWrite(LED1, HIGH);
       digitalWrite(LED2, HIGH);
     }
     for (int i = 0; i < 24; i++) {
