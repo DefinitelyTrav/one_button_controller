@@ -10,13 +10,12 @@ int buttonPinCurrent = HIGH;
 int LED1 = 3;
 int LED2 = 4;
 
-char activeCode[6] = {'-', '.', '-', '.', '.', '.'};
 char currentCode[6] = {0};
 
-bool configMode = false;
+bool configModeLast = false;
 
-// get the last `size` inputs from the currentCode list
-void getRecentInputs(char *code, int size)
+// get the last `size` codes from the currentCode list
+void getRecentcodes(char *code, int size)
 {
   int j = 0;
   for (int i = 6 - size; i < 6; i++) {
@@ -44,21 +43,21 @@ class input {
     // code is this input's sequence, forwards
     // if they match, set isActive to true
     char current[hasLength];
-    getRecentInputs(current, hasLength);
+    getRecentcodes(current, hasLength);
 
     if (memcmp(code, current, hasLength) == 0) {
-      isActive = true;
+      isActive = !isActive;
     }
   }
   
   void doPress() {
-    if (isActive == true) {
+    if (isActive) {
       Keyboard.press(key);
     }
   }
 };
 
-input inputs[24] = {
+input codes[25] = {
   input(" .. ", 4, false, 'a'),       //L_STICK_UP
   input(" -- ", 4, false, 'b'),       //L_STICK_DOWN
   input(" -. ", 4, false, 'c'),       //L_STICK_LEFT
@@ -82,12 +81,9 @@ input inputs[24] = {
   input(" -.-. ", 6, false, 'u'),     //DPAD_LEFT
   input(" .-.- ", 6, false, 'v'),     //DPAD_RIGHT
   input(" .... ", 6, false, 'w'),     //BTN_L3
-  input(" ---- ", 6, false, 'x')      //BTN_R3
+  input(" ---- ", 6, false, 'x'),      //BTN_R3
+  input(" . ", 3, false, '&')          //CONFIG MODE
 };
-
-void toggle(bool &toToggle) {
-  toToggle = !toToggle;
-}
 
 void addToArray(char toAdd) {
   currentCode[0] = currentCode[1];
@@ -98,23 +94,7 @@ void addToArray(char toAdd) {
   currentCode[5] = toAdd;
 }
 
-bool isMatch() {
-  int matches = 0;
-  for (int i = 0; i < 6; i++) {
-    if (currentCode[i] == activeCode[i]) {
-      matches++;
-    }
-  }
-  if (matches == 6) {
-    return true;
-  } else {
-    return false;
-  }
-  matches = 0;
-}
-
 void setup() {
-  // put your setup code here, to run once:
   pinMode(buttonPin, INPUT_PULLUP);
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
@@ -124,7 +104,6 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
   buttonPinCurrent = digitalRead(buttonPin);
   if (buttonPinCurrent == LOW) {
     held++;
@@ -132,7 +111,7 @@ void loop() {
   } else {
     released++;
     delay(1);
-    if (released == 500) {
+    if (released == 300) {
       addToArray(' ');
       Serial.println(currentCode);
     }
@@ -140,32 +119,32 @@ void loop() {
 
   if (buttonPinCurrent == HIGH && buttonPinLast == LOW) {
     if (held > 100) {
-      addToArray('-');
-      Serial.println(currentCode);
+      if (codes[24].isActive) {
+        addToArray('-');
+        Serial.println(currentCode);
+      }
     } else {
-      addToArray('.');
-      Serial.println(currentCode);
+      if (codes[24].isActive) {
+        addToArray('.');
+        Serial.println(currentCode);
+      } else {
+        codes[24].isActive = !codes[24].isActive;
+      }
     }
     Serial.println(held);
     held = 0;
     released = 0;
   }
-  
-  if (isMatch()) {
-    if (configMode == false) {
+
+  if (codes[24].isActive) {   // codes[24] is our configuration code
+    Keyboard.releaseAll();
+    if (!configModeLast) {
       for (int i = 0; i < 24; i++) {
-        inputs[i].isActive = false;
+        codes[i].isActive = false;
       }
     }
-    toggle(configMode);
-    for (int i=0; i < 6; i++) {
-      addToArray(' ');
-    }
-    Serial.println(configMode);
-  }
-
-  if (configMode == true) {
-    Keyboard.releaseAll();
+    
+    // Indicate whether a dot (.), dash (-), or space was entered via LED
     if (currentCode[5] == '.') {
       digitalWrite(LED1, LOW);
     } else {
@@ -180,14 +159,15 @@ void loop() {
       digitalWrite(LED1, HIGH);
       digitalWrite(LED2, HIGH);
     }
-    for (int i = 0; i < 24; i++) {
-      inputs[i].getMatch();
+    
+    for (int i = 0; i < 25; i++) {
+      codes[i].getMatch();
     }
   } else {
     if (buttonPinCurrent == LOW) {
-      if (held >= 500) {
-        for (int i = 0; i < 24; i++) {
-          inputs[i].doPress();
+      if (held >= 100) {
+        for (int i = 0; i < 24; i++) {  // Do not do the keypress for codes[24]
+          codes[i].doPress();
         }
       }
     } else {
@@ -197,4 +177,5 @@ void loop() {
     digitalWrite(LED2, LOW);
   }
   buttonPinLast = buttonPinCurrent;
+  configModeLast = codes[24].isActive;
 }
