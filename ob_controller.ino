@@ -28,13 +28,15 @@ class input {
   char code[6];   //Code
   int hasLength;  //Length
   bool isActive;  //isActive
+  bool isActiveLast;
   char key;
 
-  input(char c1[6], int l1, bool a1, char k1) {
+  input(char c1[6], int l1, bool a1, bool a2, char k1) {
     memset(code, 0, 6);
     memcpy(code, c1, l1);
     hasLength = l1;
     isActive = a1;
+    isActiveLast = a2;
     key = k1;
   }
 
@@ -46,7 +48,11 @@ class input {
     getRecentcodes(current, hasLength);
 
     if (memcmp(code, current, hasLength) == 0) {
-      isActive = !isActive;
+      if (key != '&') {
+        isActive = true;
+      } else {
+        isActive = false;
+      }
     }
   }
   
@@ -55,34 +61,42 @@ class input {
       Keyboard.press(key);
     }
   }
+  
+  void notify() {
+    if (isActive != isActiveLast) {
+      // Serial.print(key);
+      // Serial.print(" is ");
+      // Serial.println(isActive);
+    }
+  }
 };
 
 input codes[25] = {
-  input(" .. ", 4, false, 'a'),       //L_STICK_UP
-  input(" -- ", 4, false, 'b'),       //L_STICK_DOWN
-  input(" -. ", 4, false, 'c'),       //L_STICK_LEFT
-  input(" .- ", 4, false, 'd'),       //L_STICK_RIGHT
-  input(" ... ", 5, false, 'e'),      //BTN_A
-  input(" ..- ", 5, false, 'f'),      //BTN_B
-  input(" -.. ", 5, false, 'g'),      //BTN_X
-  input(" --- ", 5, false, 'h'),      //BTN_Y
-  input(" --. ", 5, false, 'i'),      //BTN_R1
-  input(" .-. ", 5, false, 'j'),      //BTN_R2
-  input(" .-- ", 5, false, 'k'),      //BTN_L1
-  input(" -.- ", 5, false, 'l'),      //BTN_L2
-  input(" -... ", 6, false, 'm'),     //BTN_ST
-  input(" ...- ", 6, false, 'n'),     //BTN_SE
-  input(" .--. ", 6, false, 'o'),     //R_STICK_UP
-  input(" -..- ", 6, false, 'p'),     //R_STICK_DOWN
-  input(" --.. ", 6, false, 'q'),     //R_STICK_LEFT
-  input(" ..-- ", 6, false, 'r'),     //R_STICK_RIGHT
-  input(" .-.. ", 6, false, 's'),     //DPAD_UP
-  input(" ..-. ", 6, false, 't'),     //DPAD_DOWN
-  input(" -.-. ", 6, false, 'u'),     //DPAD_LEFT
-  input(" .-.- ", 6, false, 'v'),     //DPAD_RIGHT
-  input(" .... ", 6, false, 'w'),     //BTN_L3
-  input(" ---- ", 6, false, 'x'),      //BTN_R3
-  input(" . ", 3, false, '&')          //CONFIG MODE
+  input(" .. ", 4, false, false, 'a'),       //L_STICK_UP
+  input(" -- ", 4, false, false, 'b'),       //L_STICK_DOWN
+  input(" -. ", 4, false, false, 'c'),       //L_STICK_LEFT
+  input(" .- ", 4, false, false, 'd'),       //L_STICK_RIGHT
+  input(" ... ", 5, false, false, 'e'),      //BTN_A
+  input(" ..- ", 5, false, false, 'f'),      //BTN_B
+  input(" -.. ", 5, false, false, 'g'),      //BTN_X
+  input(" --- ", 5, false, false, 'h'),      //BTN_Y
+  input(" --. ", 5, false, false, 'i'),      //BTN_R1
+  input(" .-. ", 5, false, false, 'j'),      //BTN_R2
+  input(" .-- ", 5, false, false, 'k'),      //BTN_L1
+  input(" -.- ", 5, false, false, 'l'),      //BTN_L2
+  input(" -... ", 6, false, false, 'm'),     //BTN_ST
+  input(" ...- ", 6, false, false, 'n'),     //BTN_SE
+  input(" .--. ", 6, false, false, 'o'),     //R_STICK_UP
+  input(" -..- ", 6, false, false, 'p'),     //R_STICK_DOWN
+  input(" --.. ", 6, false, false, 'q'),     //R_STICK_LEFT
+  input(" ..-- ", 6, false, false, 'r'),     //R_STICK_RIGHT
+  input(" .-.. ", 6, false, false, 's'),     //DPAD_UP
+  input(" ..-. ", 6, false, false, 't'),     //DPAD_DOWN
+  input(" -.-. ", 6, false, false, 'u'),     //DPAD_LEFT
+  input(" .-.- ", 6, false, false, 'v'),     //DPAD_RIGHT
+  input(" .... ", 6, false, false, 'w'),     //BTN_L3
+  input(" ---- ", 6, false, false, 'x'),      //BTN_R3
+  input(" . ", 3, false, false, '&')          //CONFIG MODE
 };
 
 void addToArray(char toAdd) {
@@ -100,7 +114,7 @@ void setup() {
   pinMode(LED2, OUTPUT);
 
   Keyboard.begin();
-  Serial.begin(9600);
+  // Serial.begin(9600);
 }
 
 void loop() {
@@ -111,9 +125,11 @@ void loop() {
   } else {
     released++;
     delay(1);
-    if (released == 300) {
-      addToArray(' ');
-      Serial.println(currentCode);
+    if (codes[24].isActive) {
+      if (released == 300) {
+        addToArray(' ');
+        // Serial.println(currentCode);
+      }
     }
   }
 
@@ -121,17 +137,18 @@ void loop() {
     if (held > 100) {
       if (codes[24].isActive) {
         addToArray('-');
-        Serial.println(currentCode);
+        // Serial.println(currentCode);
       }
     } else {
       if (codes[24].isActive) {
         addToArray('.');
-        Serial.println(currentCode);
+        // Serial.println(currentCode);
       } else {
         codes[24].isActive = !codes[24].isActive;
       }
     }
-    Serial.println(held);
+    // Serial.println(held);
+    // Serial.println(codes[24].isActive);
     held = 0;
     released = 0;
   }
@@ -139,8 +156,13 @@ void loop() {
   if (codes[24].isActive) {   // codes[24] is our configuration code
     Keyboard.releaseAll();
     if (!configModeLast) {
+      // Deactivate all buttons
       for (int i = 0; i < 24; i++) {
         codes[i].isActive = false;
+      }
+      // Dump the array 
+      for (int i=0; i < 6; i++) {
+        addToArray(' ');
       }
     }
     
@@ -163,6 +185,7 @@ void loop() {
     for (int i = 0; i < 25; i++) {
       codes[i].getMatch();
     }
+    
   } else {
     if (buttonPinCurrent == LOW) {
       if (held >= 100) {
@@ -176,6 +199,12 @@ void loop() {
     digitalWrite(LED1, LOW);
     digitalWrite(LED2, LOW);
   }
+  for (int i = 0; i < 25; i++) {
+    codes[i].notify();
+  }
   buttonPinLast = buttonPinCurrent;
   configModeLast = codes[24].isActive;
+  for (int i = 0; i < 25; i++) {
+    codes[i].isActiveLast = codes[i].isActive;
+  }
 }
