@@ -8,7 +8,7 @@ int buttonPinLast = HIGH;
 int buttonPinCurrent = HIGH;
 
 int LED1 = 3;
-int LED2 = 4;
+int LED2 = 5;
 
 char currentCode[6] = {0};
 
@@ -168,18 +168,18 @@ void loop() {
     
     // Indicate whether a dot (.), dash (-), or space was entered via LED
     if (currentCode[5] == '.') {
-      digitalWrite(LED1, LOW);
+      analogWrite(LED1, 0);
     } else {
-      digitalWrite(LED1, HIGH);
+      analogWrite(LED1, 1);
     }
     if (currentCode[5] == '-') {
-      digitalWrite(LED2, LOW);
+      analogWrite(LED2, 0);
     } else {
-      digitalWrite(LED2, HIGH);
+      analogWrite(LED2, 1);
     }
     if (currentCode[5] == ' ') {
-      digitalWrite(LED1, HIGH);
-      digitalWrite(LED2, HIGH);
+      analogWrite(LED1, 1);
+      analogWrite(LED2, 1);
     }
     
     for (int i = 0; i < 25; i++) {
@@ -196,8 +196,8 @@ void loop() {
     } else {
       Keyboard.releaseAll();
     }
-    digitalWrite(LED1, LOW);
-    digitalWrite(LED2, LOW);
+    analogWrite(LED1, 0);
+    analogWrite(LED2, 0);
   }
   for (int i = 0; i < 25; i++) {
     codes[i].notify();
