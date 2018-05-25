@@ -50,7 +50,8 @@ class input {
 
     if (memcmp(code, current, hasLength) == 0) {
       if (key != '&' || key != '$') {
-        isActive = true;
+        isActive = !isActive;
+        addToArray(' ');
       } 
       if (key == '&') {
         isActive = false;
@@ -69,9 +70,9 @@ class input {
   
   void notify() {
     if (isActive != isActiveLast) {
-      Serial.print(key);
-      Serial.print(" is ");
-      Serial.println(isActive);
+      // Serial.print(key);
+      // Serial.print(" is ");
+      // Serial.println(isActive);
     }
   }
 };
@@ -79,16 +80,16 @@ class input {
 input codes[26] = {
   input(" .. ", 4, false, false, 'a'),       //L_STICK_UP
   input(" -- ", 4, false, false, 'b'),       //L_STICK_DOWN
-  input(" -. ", 4, false, false, 'c'),       //L_STICK_LEFT
-  input(" .- ", 4, false, false, 'd'),       //L_STICK_RIGHT
-  input(" ... ", 5, false, false, 'e'),      //BTN_A
-  input(" ..- ", 5, false, false, 'f'),      //BTN_B
-  input(" -.. ", 5, false, false, 'g'),      //BTN_X
-  input(" --- ", 5, false, false, 'h'),      //BTN_Y
-  input(" --. ", 5, false, false, 'i'),      //BTN_R1
-  input(" .-. ", 5, false, false, 'j'),      //BTN_R2
-  input(" .-- ", 5, false, false, 'k'),      //BTN_L1
-  input(" -.- ", 5, false, false, 'l'),      //BTN_L2
+  input(" .- ", 4, false, false, 'c'),       //L_STICK_LEFT
+  input(" -. ", 4, false, false, 'd'),       //L_STICK_RIGHT
+  input(" ... ", 5, false, false, 'e'),      //BTN_DOWN
+  input(" -.. ", 5, false, false, 'f'),      //BTN_RIGHT
+  input(" ..- ", 5, false, false, 'g'),      //BTN_LEFT
+  input(" --- ", 5, false, false, 'h'),      //BTN_UP
+  input(" --. ", 5, false, false, 'i'),      //BTN_RIGHT SHOULDER
+  input(" .-. ", 5, false, false, 'j'),      //BTN_RIGHT TRIGGER
+  input(" .-- ", 5, false, false, 'k'),      //BTN_LEFT SHOULDER
+  input(" -.- ", 5, false, false, 'l'),      //BTN_LEFT TRIGGER
   input(" -... ", 6, false, false, 'm'),     //BTN_ST
   input(" ...- ", 6, false, false, 'n'),     //BTN_SE
   input(" .--. ", 6, false, false, 'o'),     //R_STICK_UP
@@ -128,7 +129,7 @@ void setup() {
   pinMode(LED2, OUTPUT);
 
   Keyboard.begin();
-  Serial.begin(9600);
+  // Serial.begin(9600);
 }
 
 void loop() {
@@ -142,7 +143,7 @@ void loop() {
     if (codes[24].isActive) {
       if (released == 300) {
         addToArray(' ');
-        Serial.println(currentCode);
+        // Serial.println(currentCode);
       }
     }
   }
@@ -151,18 +152,18 @@ void loop() {
     if (held > 100) {
       if (codes[24].isActive) {
         addToArray('-');
-        Serial.println(currentCode);
+        // Serial.println(currentCode);
       }
     } else {
       if (codes[24].isActive) {
         addToArray('.');
-        Serial.println(currentCode);
+        // Serial.println(currentCode);
       } else {
         codes[24].isActive = !codes[24].isActive;
       }
     }
-    Serial.println(held);
-    Serial.println(codes[24].isActive);
+    // Serial.println(held);
+    // Serial.println(codes[24].isActive);
     held = 0;
     released = 0;
   }
