@@ -11,6 +11,7 @@ int LED1 = 3;
 int LED2 = 5;
 
 char currentCode[6] = {0};
+int lastActive[26] = {-1};
 
 bool configModeLast = false;
 
@@ -48,10 +49,14 @@ class input {
     getRecentcodes(current, hasLength);
 
     if (memcmp(code, current, hasLength) == 0) {
-      if (key != '&') {
+      if (key != '&' || key != '$') {
         isActive = true;
-      } else {
+      } 
+      if (key == '&') {
         isActive = false;
+      }
+      if (key == '$') {
+        recall();
       }
     }
   }
@@ -64,14 +69,14 @@ class input {
   
   void notify() {
     if (isActive != isActiveLast) {
-      // Serial.print(key);
-      // Serial.print(" is ");
-      // Serial.println(isActive);
+      Serial.print(key);
+      Serial.print(" is ");
+      Serial.println(isActive);
     }
   }
 };
 
-input codes[25] = {
+input codes[26] = {
   input(" .. ", 4, false, false, 'a'),       //L_STICK_UP
   input(" -- ", 4, false, false, 'b'),       //L_STICK_DOWN
   input(" -. ", 4, false, false, 'c'),       //L_STICK_LEFT
@@ -95,8 +100,9 @@ input codes[25] = {
   input(" -.-. ", 6, false, false, 'u'),     //DPAD_LEFT
   input(" .-.- ", 6, false, false, 'v'),     //DPAD_RIGHT
   input(" .... ", 6, false, false, 'w'),     //BTN_L3
-  input(" ---- ", 6, false, false, 'x'),      //BTN_R3
-  input(" . ", 3, false, false, '&')          //CONFIG MODE
+  input(" ---- ", 6, false, false, 'x'),     //BTN_R3
+  input(" . ", 3, false, false, '&'),        //CONFIG MODE
+  input(" - ", 3, false, false, '$')          //RECALL
 };
 
 void addToArray(char toAdd) {
@@ -108,13 +114,21 @@ void addToArray(char toAdd) {
   currentCode[5] = toAdd;
 }
 
+void recall() {
+  for (int i = 0; i < 26; i++) {
+    if (lastActive[i] >= 0) {
+      codes[lastActive[i]].isActive = true;
+    }
+  }
+}
+
 void setup() {
   pinMode(buttonPin, INPUT_PULLUP);
   pinMode(LED1, OUTPUT);
   pinMode(LED2, OUTPUT);
 
   Keyboard.begin();
-  // Serial.begin(9600);
+  Serial.begin(9600);
 }
 
 void loop() {
@@ -128,7 +142,7 @@ void loop() {
     if (codes[24].isActive) {
       if (released == 300) {
         addToArray(' ');
-        // Serial.println(currentCode);
+        Serial.println(currentCode);
       }
     }
   }
@@ -137,18 +151,18 @@ void loop() {
     if (held > 100) {
       if (codes[24].isActive) {
         addToArray('-');
-        // Serial.println(currentCode);
+        Serial.println(currentCode);
       }
     } else {
       if (codes[24].isActive) {
         addToArray('.');
-        // Serial.println(currentCode);
+        Serial.println(currentCode);
       } else {
         codes[24].isActive = !codes[24].isActive;
       }
     }
-    // Serial.println(held);
-    // Serial.println(codes[24].isActive);
+    Serial.println(held);
+    Serial.println(codes[24].isActive);
     held = 0;
     released = 0;
   }
@@ -182,7 +196,7 @@ void loop() {
       analogWrite(LED2, 1);
     }
     
-    for (int i = 0; i < 25; i++) {
+    for (int i = 0; i < 26; i++) {
       codes[i].getMatch();
     }
     
@@ -199,6 +213,27 @@ void loop() {
     analogWrite(LED1, 0);
     analogWrite(LED2, 0);
   }
+  
+  // Store last activated buttons in array in case they need to be recalled
+  // Do this when we exit config mode
+  // Empty the array first, then fill with the new code
+  if (codes[24].isActive == false && configModeLast != codes[24].isActive) {
+    int j = 0;
+    // Clear the array
+    for (int i = 0; i < 26; i++) {
+      lastActive[i] = -1;
+    }
+    // See which entries should be added to the array
+    // Add items that are active to the array
+    for (int i = 0; i < 24; i++) {
+      if (codes[i].isActive == true) {
+        lastActive[j] = i;
+        j++;
+      }
+    }
+    j = 0;
+  }
+  
   for (int i = 0; i < 25; i++) {
     codes[i].notify();
   }
