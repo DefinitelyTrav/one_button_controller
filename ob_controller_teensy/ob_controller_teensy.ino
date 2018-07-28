@@ -15,6 +15,12 @@ int LED2 = 4;
 char currentCode[6] = {0};
 int lastActive[26] = {-1};
 
+int speakerPin = 8;
+int note1 = 659;
+int note2 = 1047;
+int delay1 = 100;
+int delay2 = 100;
+
 bool configModeLast = false;
 
 // get the last `size` codes from the currentCode list
@@ -168,11 +174,13 @@ void loop() {
     if (held > heldTime) {
       if (codes[24].isActive) {
         addToArray('-');
+        tone(speakerPin, note2, delay1*2);
         // Serial.println(currentCode);
       }
     } else {
       if (codes[24].isActive) {
         addToArray('.');
+        tone(speakerPin, note1, delay1/2);
         // Serial.println(currentCode);
       } else {
         codes[24].isActive = !codes[24].isActive;
@@ -319,6 +327,19 @@ void loop() {
     }
     j = 0;
   }
+
+  //Play sound when entering and exiting configmode
+  if (codes[24].isActive == true && configModeLast != codes[24].isActive) {
+    tone(speakerPin, note1, delay1);
+    delay(delay1);
+    tone(speakerPin, note2, delay2);
+  }
+  if (codes[24].isActive == false && configModeLast != codes[24].isActive) {
+    tone(speakerPin, note2, delay1);
+    delay(delay1);
+    tone(speakerPin, note1, delay2);
+  }
+  
   //Send data
   controller.sendXinput();
 
