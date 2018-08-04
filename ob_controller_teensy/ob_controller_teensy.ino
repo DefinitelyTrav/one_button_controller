@@ -23,6 +23,10 @@ int delay2 = 100;
 
 bool configModeLast = false;
 
+bool buttonQueue [25][25] = {};
+int buttonQueuePos = 0;
+int buttonQueueTotal = 0;
+
 // get the last `size` codes from the currentCode list
 void getRecentcodes(char *code, int size)
 {
@@ -72,9 +76,9 @@ class input {
   
   void notify() {
     if (isActive != isActiveLast) {
-      // Serial.print(code);
-      // Serial.print(" is ");
-      // Serial.println(isActive);
+      Serial.print(code);
+      Serial.print(" is ");
+      Serial.println(isActive);
     }
   }
 };
@@ -118,9 +122,28 @@ void addToArray(char toAdd) {
 }
 
 void recall() {
-  for (int i = 0; i < 26; i++) {
-    if (lastActive[i] >= 0) {
-      codes[lastActive[i]].isActive = true;
+  int currentRow = 0;
+  int currentColumn = 0;
+  
+  //  Find empty row
+  for (int i = 0; i < 25; i++) {
+    if (buttonQueue[i][0] != NULL) {
+      currentRow++;
+      buttonQueueTotal++;
+    } else {
+      break;
+    }
+  }
+  
+  //  Check which buttons are true and store them in an array
+  for (int i = 0; i < 24; i++) {
+    if (codes[i].isActive == true) {
+      //  Add button to array
+      buttonQueue[currentRow][currentColumn] = i;
+      //  Set isActive false to prevent repeat readings
+      codes[i].isActive = false;
+      //  Increment currentColumn
+      currentColumn++; 
     }
   }
 }
@@ -192,6 +215,17 @@ void loop() {
     released = 0;
   }
 
+  
+  // Clear button queue when we enter config mode
+  if (codes[24].isActive == true && configModeLast != codes[24].isActive) {
+    for (int i = 0; i < 25; i++) {
+      for (int j = 0; j < 25; j++) {
+        buttonQueue[i][j] = NULL;
+      }
+    }
+    buttonQueueTotal = 0;
+  }
+
   if (codes[24].isActive) {   // codes[24] is our configuration code
     gp_releaseAll();
     if (!configModeLast) {
@@ -226,108 +260,197 @@ void loop() {
     }
     
   } else {
-    if (buttonPinCurrent == LOW) {
-      if (held >= heldTime) {
-        if (codes[0].isActive) {
-          controller.stickUpdate(STICK_LEFT, 0, -32767);    // LEFT STICK UP
-        }
-        if (codes[1].isActive) {
-          controller.stickUpdate(STICK_LEFT, 0, 32767);   // LEFT STICK DOWN
-        }
-        if (codes[2].isActive) {
-          controller.stickUpdate(STICK_LEFT, -32767, 0);   // LEFT STICK LEFT
-        }
-        if (codes[3].isActive) {
-          controller.stickUpdate(STICK_LEFT, 32767, 0);    // LEFT STICK RIGHT
-        }
-        if (codes[4].isActive) {
-          controller.buttonUpdate(BUTTON_A, 1);
-        }
-        if (codes[5].isActive) {
-          controller.buttonUpdate(BUTTON_B, 1);
-        }
-        if (codes[6].isActive) {
-          controller.buttonUpdate(BUTTON_X, 1);
-        }
-        if (codes[7].isActive) {
-          controller.buttonUpdate(BUTTON_Y, 1);
-        }
-        if (codes[8].isActive) {
-          controller.buttonUpdate(BUTTON_RB, 1);
-        }
-        if (codes[9].isActive) {
-          controller.singleTriggerUpdate(TRIGGER_RIGHT, 255);
-        }
-        if (codes[10].isActive) {
-          controller.buttonUpdate(BUTTON_LB, 1);
-        }
-        if (codes[11].isActive) {
-          controller.singleTriggerUpdate(TRIGGER_LEFT, 255);
-        }
-        if (codes[12].isActive) {
-          controller.buttonUpdate(BUTTON_START, 1);
-        }
-        if (codes[13].isActive) {
-          controller.buttonUpdate(BUTTON_BACK, 1);
-        }
-        if (codes[14].isActive) {
-          controller.stickUpdate(STICK_RIGHT, 0, -32767);    // RIGHT STICK UP
-        }
-        if (codes[15].isActive) {
-          controller.stickUpdate(STICK_RIGHT, 0, 32767);   // RIGHT STICK DOWN
-        }
-        if (codes[16].isActive) {
-          controller.stickUpdate(STICK_RIGHT, -32767, 0);   // RIGHT STICK LEFT
-        }
-        if (codes[17].isActive) {
-          controller.stickUpdate(STICK_RIGHT, 32767, 0);    // RIGHT STICK RIGHT
-        }
-        if (codes[18].isActive) {
-          controller.dpadUpdate(1,0,0,0);
-        }
-        if (codes[19].isActive) {
-          controller.dpadUpdate(0,1,0,0);
-        }
-        if (codes[20].isActive) {
-          controller.dpadUpdate(0,0,1,0);
-        }
-        if (codes[21].isActive) {
-          controller.dpadUpdate(0,0,0,1);
-        }
-        if (codes[22].isActive) {
-          controller.buttonUpdate(BUTTON_L3, 1);
-        }
-        if (codes[23].isActive) {
-          controller.buttonUpdate(BUTTON_R3, 1);
+    //  Button queue stuff
+    //  Check if queue is empty
+    if (buttonQueueTotal != 0) {
+      //  Set isActive for current position to true
+      //  when the button is pressed
+      if (buttonPinCurrent == LOW && buttonPinLast == HIGH) {
+        //  Check columns of current row and set isActive to true
+        for (int i = 0; i < 25; i++) {
+          if (buttonQueue[buttonQueuePos][i] != NULL) {
+            codes[buttonQueue[buttonQueuePos][i]].isActive = true;
+          } else {
+            break;
+          }
         }
       }
-    } else {
-      gp_releaseAll();
+
+      //  While the button is held, send the input
+      if (buttonPinCurrent == LOW && buttonPinLast == LOW) {
+        if (held >= heldTime) {
+          if (codes[0].isActive) {
+            controller.stickUpdate(STICK_LEFT, 0, -32767);    // LEFT STICK UP
+          }
+          if (codes[1].isActive) {
+            controller.stickUpdate(STICK_LEFT, 0, 32767);   // LEFT STICK DOWN
+          }
+          if (codes[2].isActive) {
+            controller.stickUpdate(STICK_LEFT, -32767, 0);   // LEFT STICK LEFT
+          }
+          if (codes[3].isActive) {
+            controller.stickUpdate(STICK_LEFT, 32767, 0);    // LEFT STICK RIGHT
+          }
+          if (codes[4].isActive) {
+            controller.buttonUpdate(BUTTON_A, 1);
+          }
+          if (codes[5].isActive) {
+            controller.buttonUpdate(BUTTON_B, 1);
+          }
+          if (codes[6].isActive) {
+            controller.buttonUpdate(BUTTON_X, 1);
+          }
+          if (codes[7].isActive) {
+            controller.buttonUpdate(BUTTON_Y, 1);
+          }
+          if (codes[8].isActive) {
+            controller.buttonUpdate(BUTTON_RB, 1);
+          }
+          if (codes[9].isActive) {
+            controller.singleTriggerUpdate(TRIGGER_RIGHT, 255);
+          }
+          if (codes[10].isActive) {
+            controller.buttonUpdate(BUTTON_LB, 1);
+          }
+          if (codes[11].isActive) {
+            controller.singleTriggerUpdate(TRIGGER_LEFT, 255);
+          }
+          if (codes[12].isActive) {
+            controller.buttonUpdate(BUTTON_START, 1);
+          }
+          if (codes[13].isActive) {
+            controller.buttonUpdate(BUTTON_BACK, 1);
+          }
+          if (codes[14].isActive) {
+            controller.stickUpdate(STICK_RIGHT, 0, -32767);    // RIGHT STICK UP
+          }
+          if (codes[15].isActive) {
+            controller.stickUpdate(STICK_RIGHT, 0, 32767);   // RIGHT STICK DOWN
+          }
+          if (codes[16].isActive) {
+            controller.stickUpdate(STICK_RIGHT, -32767, 0);   // RIGHT STICK LEFT
+          }
+          if (codes[17].isActive) {
+            controller.stickUpdate(STICK_RIGHT, 32767, 0);    // RIGHT STICK RIGHT
+          }
+          if (codes[18].isActive) {
+            controller.dpadUpdate(1,0,0,0);
+          }
+          if (codes[19].isActive) {
+            controller.dpadUpdate(0,1,0,0);
+          }
+          if (codes[20].isActive) {
+            controller.dpadUpdate(0,0,1,0);
+          }
+          if (codes[21].isActive) {
+            controller.dpadUpdate(0,0,0,1);
+          }
+          if (codes[22].isActive) {
+            controller.buttonUpdate(BUTTON_L3, 1);
+          }
+          if (codes[23].isActive) {
+            controller.buttonUpdate(BUTTON_R3, 1);
+          }
+        }
+      }
+
+      //  When the button is released, increment row to total - 1
+      if (buttonPinCurrent = HIGH && buttonPinCurrent != buttonPinLast) {
+        gp_releaseAll();
+        for (int i = 0; i < 26; i++) {
+          if (codes[i].isActive == true) {
+            codes[i].isActive = false;
+          }
+        }
+        if (buttonQueuePos != buttonQueueTotal - 1) {
+          buttonQueuePos++;
+        }
+      }
+      
+    } else {     
+      if (buttonPinCurrent == LOW) {
+        if (held >= heldTime) {
+          if (codes[0].isActive) {
+            controller.stickUpdate(STICK_LEFT, 0, -32767);    // LEFT STICK UP
+          }
+          if (codes[1].isActive) {
+            controller.stickUpdate(STICK_LEFT, 0, 32767);   // LEFT STICK DOWN
+          }
+          if (codes[2].isActive) {
+            controller.stickUpdate(STICK_LEFT, -32767, 0);   // LEFT STICK LEFT
+          }
+          if (codes[3].isActive) {
+            controller.stickUpdate(STICK_LEFT, 32767, 0);    // LEFT STICK RIGHT
+          }
+          if (codes[4].isActive) {
+            controller.buttonUpdate(BUTTON_A, 1);
+          }
+          if (codes[5].isActive) {
+            controller.buttonUpdate(BUTTON_B, 1);
+          }
+          if (codes[6].isActive) {
+            controller.buttonUpdate(BUTTON_X, 1);
+          }
+          if (codes[7].isActive) {
+            controller.buttonUpdate(BUTTON_Y, 1);
+          }
+          if (codes[8].isActive) {
+            controller.buttonUpdate(BUTTON_RB, 1);
+          }
+          if (codes[9].isActive) {
+            controller.singleTriggerUpdate(TRIGGER_RIGHT, 255);
+          }
+          if (codes[10].isActive) {
+            controller.buttonUpdate(BUTTON_LB, 1);
+          }
+          if (codes[11].isActive) {
+            controller.singleTriggerUpdate(TRIGGER_LEFT, 255);
+          }
+          if (codes[12].isActive) {
+            controller.buttonUpdate(BUTTON_START, 1);
+          }
+          if (codes[13].isActive) {
+            controller.buttonUpdate(BUTTON_BACK, 1);
+          }
+          if (codes[14].isActive) {
+            controller.stickUpdate(STICK_RIGHT, 0, -32767);    // RIGHT STICK UP
+          }
+          if (codes[15].isActive) {
+            controller.stickUpdate(STICK_RIGHT, 0, 32767);   // RIGHT STICK DOWN
+          }
+          if (codes[16].isActive) {
+            controller.stickUpdate(STICK_RIGHT, -32767, 0);   // RIGHT STICK LEFT
+          }
+          if (codes[17].isActive) {
+            controller.stickUpdate(STICK_RIGHT, 32767, 0);    // RIGHT STICK RIGHT
+          }
+          if (codes[18].isActive) {
+            controller.dpadUpdate(1,0,0,0);
+          }
+          if (codes[19].isActive) {
+            controller.dpadUpdate(0,1,0,0);
+          }
+          if (codes[20].isActive) {
+            controller.dpadUpdate(0,0,1,0);
+          }
+          if (codes[21].isActive) {
+            controller.dpadUpdate(0,0,0,1);
+          }
+          if (codes[22].isActive) {
+            controller.buttonUpdate(BUTTON_L3, 1);
+          }
+          if (codes[23].isActive) {
+            controller.buttonUpdate(BUTTON_R3, 1);
+          }
+        }
+      } else {
+        gp_releaseAll();
+      }
+      analogWrite(LED1, 0);
+      analogWrite(LED2, 0);
     }
-    analogWrite(LED1, 0);
-    analogWrite(LED2, 0);
   }
   
-  // Store last activated buttons in array in case they need to be recalled
-  // Do this when we exit config mode
-  // Empty the array first, then fill with the new code
-  if (codes[24].isActive == false && configModeLast != codes[24].isActive) {
-    int j = 0;
-    // Clear the array
-    for (int i = 0; i < 26; i++) {
-      lastActive[i] = -1;
-    }
-    // See which entries should be added to the array
-    // Add items that are active to the array
-    for (int i = 0; i < 24; i++) {
-      if (codes[i].isActive == true) {
-        lastActive[j] = i;
-        j++;
-      }
-    }
-    j = 0;
-  }
-
   //Play sound when entering and exiting configmode
   if (codes[24].isActive == true && configModeLast != codes[24].isActive) {
     tone(speakerPin, note1, delay1);
