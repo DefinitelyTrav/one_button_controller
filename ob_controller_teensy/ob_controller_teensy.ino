@@ -2,10 +2,13 @@
 #include <xinput.h>
 
 int buttonPin = 2;
+
 int held = 0;
 int heldTime = 50;
+int longHold = 150;
 int released = 0;
 int releasedTime = 75;
+
 int buttonPinLast = HIGH;
 int buttonPinCurrent = HIGH;
 
@@ -18,10 +21,26 @@ int lastActive[26] = {-1};
 int speakerPin = 8;
 int note1 = 659;
 int note2 = 1047;
+int note3 = 1760;
 int delay1 = 100;
 int delay2 = 100;
 
 bool configModeLast = false;
+
+int buttonQueue [25][25] = {};
+int buttonQueuePos = 0;
+int buttonQueueTotal = 0;
+
+int buttonGroup1 [25][25] = {};
+int buttonGroup2 [25][25] = {};
+int buttonGroup3 [25][25] = {};
+int buttonGroup4 [25][25] = {};
+int buttonGroup5 [25][25] = {};
+int buttonGroup6 [25][25] = {};
+int buttonGroup7 [25][25] = {};
+int buttonGroup8 [25][25] = {};
+int buttonGroup9 [25][25] = {};
+int buttonGroup10 [25][25] = {};
 
 // get the last `size` codes from the currentCode list
 void getRecentcodes(char *code, int size)
@@ -72,9 +91,9 @@ class input {
   
   void notify() {
     if (isActive != isActiveLast) {
-      // Serial.print(code);
-      // Serial.print(" is ");
-      // Serial.println(isActive);
+      Serial.print(code);
+      Serial.print(" is ");
+      Serial.println(isActive);
     }
   }
 };
@@ -96,16 +115,16 @@ input codes[26] = {
   input(" ...- ", 6, false, false, 'n'),     //BTN_SE
   input(" .--. ", 6, false, false, 'o'),     //R_STICK_UP
   input(" -..- ", 6, false, false, 'p'),     //R_STICK_DOWN
-  input(" --.. ", 6, false, false, 'q'),     //R_STICK_LEFT
-  input(" ..-- ", 6, false, false, 'r'),     //R_STICK_RIGHT
+  input(" ..-- ", 6, false, false, 'q'),     //R_STICK_LEFT
+  input(" --.. ", 6, false, false, 'r'),     //R_STICK_RIGHT
   input(" .-.. ", 6, false, false, 's'),     //DPAD_UP
   input(" ..-. ", 6, false, false, 't'),     //DPAD_DOWN
-  input(" -.-. ", 6, false, false, 'u'),     //DPAD_LEFT
-  input(" .-.- ", 6, false, false, 'v'),     //DPAD_RIGHT
+  input(" .-.- ", 6, false, false, 'u'),     //DPAD_LEFT
+  input(" -.-. ", 6, false, false, 'v'),     //DPAD_RIGHT
   input(" .... ", 6, false, false, 'w'),     //BTN_L3
   input(" ---- ", 6, false, false, 'x'),     //BTN_R3
   input(" . ", 3, false, false, '&'),        //CONFIG MODE
-  input(" - ", 3, false, false, '$')          //RECALL
+  input(" - ", 3, false, false, '$')         //RECALL
 };
 
 void addToArray(char toAdd) {
@@ -118,9 +137,28 @@ void addToArray(char toAdd) {
 }
 
 void recall() {
-  for (int i = 0; i < 26; i++) {
-    if (lastActive[i] >= 0) {
-      codes[lastActive[i]].isActive = true;
+  int currentRow = 0;
+  int currentColumn = 0;
+  
+  //  Find empty row
+  for (int i = 0; i < 25; i++) {
+    if (buttonQueue[i][0] != 255) {
+      currentRow++;
+      buttonQueueTotal++;
+    } else {
+      break;
+    }
+  }
+  
+  //  Check which buttons are true and store them in an array
+  for (int i = 0; i < 24; i++) {
+    if (codes[i].isActive == true) {
+      //  Add button to array
+      buttonQueue[currentRow][currentColumn] = i;
+      //  Set isActive false to prevent repeat readings
+      codes[i].isActive = false;
+      //  Increment currentColumn
+      currentColumn++; 
     }
   }
 }
@@ -146,6 +184,20 @@ void gp_releaseAll() {
   controller.stickUpdate(STICK_RIGHT, 0, 0);
 }
 
+bool checkButtonsStatus() {
+  int v = 0;
+  for (int i = 0; i < 24; i++) {
+    if (codes[i].isActive) {
+      v++;
+    }
+  }
+  if (v > 0) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 void setup() {
   pinMode(buttonPin, INPUT_PULLUP);
   pinMode(LED1, OUTPUT);
@@ -158,6 +210,43 @@ void loop() {
   buttonPinCurrent = digitalRead(buttonPin);
   if (buttonPinCurrent == LOW) {
     held++;
+    if (codes[24].isActive) {
+      if (held == longHold) {
+        tone(speakerPin, note3, delay1/2);
+      }
+      if (held == longHold+100) {
+        tone(speakerPin, note3, delay1/2);
+      }
+      if (held == longHold+200) {
+        tone(speakerPin, note3, delay1/2);
+      }
+      if (held == longHold+300) {
+        tone(speakerPin, note3, delay1/2);
+      }
+      if (held == longHold+400) {
+        tone(speakerPin, note3, delay1/2);
+      }
+      if (held == longHold+500) {
+        tone(speakerPin, note3, delay1/2);
+      }
+      if (held == longHold+600) {
+        tone(speakerPin, note3, delay1/2);
+      }
+      if (held == longHold+700) {
+        tone(speakerPin, note3, delay1/2);
+      }
+      if (held == longHold+800) {
+        tone(speakerPin, note3, delay1/2);
+      }
+      if (held == longHold+900) {
+        tone(speakerPin, note3, delay1/2);
+      }
+      if (held == longHold+1000) {
+        tone(speakerPin, note3, delay1/2);
+        delay(delay1/2);
+        tone(speakerPin, note2, delay1);
+      }
+    }
     delay(1);
   } else {
     released++;
@@ -171,13 +260,7 @@ void loop() {
   }
 
   if (buttonPinCurrent == HIGH && buttonPinLast == LOW) {
-    if (held > heldTime) {
-      if (codes[24].isActive) {
-        addToArray('-');
-        tone(speakerPin, note2, delay1*2);
-        // Serial.println(currentCode);
-      }
-    } else {
+    if (held <= heldTime){
       if (codes[24].isActive) {
         addToArray('.');
         tone(speakerPin, note1, delay1/2);
@@ -186,10 +269,551 @@ void loop() {
         codes[24].isActive = !codes[24].isActive;
       }
     }
+    
+    if (held > heldTime && held < longHold) {
+      if (codes[24].isActive) {
+        addToArray('-');
+        tone(speakerPin, note2, delay1*2);
+        // Serial.println(currentCode);
+      }
+    }
+    
+    // Button group one
+    if (held >= longHold && held < longHold+100) {
+      if (codes[24].isActive) {
+        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
+          // Clear the group
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonGroup1[i][j] = 255;
+            }
+          }
+          // If there are any buttons added, set them so in the group
+          if (checkButtonsStatus()) {
+            int currentColumn = 0;
+            for (int i = 0; i < 24; i++) {
+              if (codes[i].isActive) {
+                buttonGroup1[0][currentColumn] = i;
+                currentColumn++;
+              }
+            }
+            buttonGroup1[24][24] = 1;
+          }
+          // If there are any buttons in the queue, add them to the group
+          // (This will overwrite any buttons added to the group previously)
+          if (buttonQueueTotal != 0) {
+            for (int i = 0; i < 25; i++) {
+              for (int j = 0; j < 25; j++) {
+                buttonGroup1[i][j] = buttonQueue[i][j];
+              }
+            }
+            buttonGroup1[24][24] = buttonQueueTotal;
+          }
+        } 
+        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
+          // Fill the button queue (after clearing it)
+          // Clear button queue
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = 255;
+            }
+          }
+          // Fill the queue and renew the total
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = buttonGroup1[i][j];
+            }
+          }
+          buttonQueueTotal = buttonGroup1[24][24];
+          buttonQueue[24][24] = 255; // Clear out the extra total
+        }
+      }
+    }
+    
+    // Button group two
+    if (held >= longHold+100 && held < longHold+200) {
+      if (codes[24].isActive) {
+        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
+          // Clear the group
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonGroup2[i][j] = 255;
+            }
+          }
+          // If there are any buttons added, set them so in the group
+          if (checkButtonsStatus()) {
+            int currentColumn = 0;
+            for (int i = 0; i < 24; i++) {
+              if (codes[i].isActive) {
+                buttonGroup2[0][currentColumn] = i;
+                currentColumn++;
+              }
+            }
+            buttonGroup2[24][24] = 1;
+          }
+          // If there are any buttons in the queue, add them to the group
+          // (This will overwrite any buttons added to the group previously)
+          if (buttonQueueTotal != 0) {
+            for (int i = 0; i < 25; i++) {
+              for (int j = 0; j < 25; j++) {
+                buttonGroup2[i][j] = buttonQueue[i][j];
+              }
+            }
+            buttonGroup2[24][24] = buttonQueueTotal;
+          }
+        } 
+        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
+          // Fill the button queue (after clearing it)
+          // Clear button queue
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = 255;
+            }
+          }
+          // Fill the queue and renew the total
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = buttonGroup2[i][j];
+            }
+          }
+          buttonQueueTotal = buttonGroup2[24][24];
+          buttonQueue[24][24] = 255; // Clear out the extra total
+        }
+      }
+    }
+
+    // Button group three
+    if (held >= longHold+200 && held < longHold+300) {
+      if (codes[24].isActive) {
+        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
+          // Clear the group
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+             buttonGroup3[i][j] = 255;
+            }
+          }
+          // If there are any buttons added, set them so in the group
+          if (checkButtonsStatus()) {
+            int currentColumn = 0;
+            for (int i = 0; i < 24; i++) {
+              if (codes[i].isActive) {
+               buttonGroup3[0][currentColumn] = i;
+                currentColumn++;
+              }
+            }
+           buttonGroup3[24][24] = 1;
+          }
+          // If there are any buttons in the queue, add them to the group
+          // (This will overwrite any buttons added to the group previously)
+          if (buttonQueueTotal != 0) {
+            for (int i = 0; i < 25; i++) {
+              for (int j = 0; j < 25; j++) {
+               buttonGroup3[i][j] = buttonQueue[i][j];
+              }
+            }
+           buttonGroup3[24][24] = buttonQueueTotal;
+          }
+        } 
+        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
+          // Fill the button queue (after clearing it)
+          // Clear button queue
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = 255;
+            }
+          }
+          // Fill the queue and renew the total
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = buttonGroup3[i][j];
+            }
+          }
+          buttonQueueTotal = buttonGroup3[24][24];
+          buttonQueue[24][24] = 255; // Clear out the extra total
+        }
+      }
+    }
+
+    // Button group four
+    if (held >= longHold+300 && held < longHold+400) {
+      if (codes[24].isActive) {
+        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
+          // Clear the group
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+             buttonGroup4[i][j] = 255;
+            }
+          }
+          // If there are any buttons added, set them so in the group
+          if (checkButtonsStatus()) {
+            int currentColumn = 0;
+            for (int i = 0; i < 24; i++) {
+              if (codes[i].isActive) {
+               buttonGroup4[0][currentColumn] = i;
+                currentColumn++;
+              }
+            }
+           buttonGroup4[24][24] = 1;
+          }
+          // If there are any buttons in the queue, add them to the group
+          // (This will overwrite any buttons added to the group previously)
+          if (buttonQueueTotal != 0) {
+            for (int i = 0; i < 25; i++) {
+              for (int j = 0; j < 25; j++) {
+               buttonGroup4[i][j] = buttonQueue[i][j];
+              }
+            }
+           buttonGroup4[24][24] = buttonQueueTotal;
+          }
+        } 
+        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
+          // Fill the button queue (after clearing it)
+          // Clear button queue
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = 255;
+            }
+          }
+          // Fill the queue and renew the total
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = buttonGroup4[i][j];
+            }
+          }
+          buttonQueueTotal = buttonGroup4[24][24];
+          buttonQueue[24][24] = 255; // Clear out the extra total
+        }
+      }
+    }
+
+    // Button group five
+    if (held >= longHold+400 && held < longHold+500) {
+      if (codes[24].isActive) {
+        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
+          // Clear the group
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+             buttonGroup5[i][j] = 255;
+            }
+          }
+          // If there are any buttons added, set them so in the group
+          if (checkButtonsStatus()) {
+            int currentColumn = 0;
+            for (int i = 0; i < 24; i++) {
+              if (codes[i].isActive) {
+               buttonGroup5[0][currentColumn] = i;
+                currentColumn++;
+              }
+            }
+           buttonGroup5[24][24] = 1;
+          }
+          // If there are any buttons in the queue, add them to the group
+          // (This will overwrite any buttons added to the group previously)
+          if (buttonQueueTotal != 0) {
+            for (int i = 0; i < 25; i++) {
+              for (int j = 0; j < 25; j++) {
+               buttonGroup5[i][j] = buttonQueue[i][j];
+              }
+            }
+           buttonGroup5[24][24] = buttonQueueTotal;
+          }
+        } 
+        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
+          // Fill the button queue (after clearing it)
+          // Clear button queue
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = 255;
+            }
+          }
+          // Fill the queue and renew the total
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = buttonGroup5[i][j];
+            }
+          }
+          buttonQueueTotal = buttonGroup5[24][24];
+          buttonQueue[24][24] = 255; // Clear out the extra total
+        }
+      }
+    }
+
+    // Button group six
+    if (held >= longHold+500 && held < longHold+600) {
+      if (codes[24].isActive) {
+        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
+          // Clear the group
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+             buttonGroup6[i][j] = 255;
+            }
+          }
+          // If there are any buttons added, set them so in the group
+          if (checkButtonsStatus()) {
+            int currentColumn = 0;
+            for (int i = 0; i < 24; i++) {
+              if (codes[i].isActive) {
+               buttonGroup6[0][currentColumn] = i;
+                currentColumn++;
+              }
+            }
+           buttonGroup6[24][24] = 1;
+          }
+          // If there are any buttons in the queue, add them to the group
+          // (This will overwrite any buttons added to the group previously)
+          if (buttonQueueTotal != 0) {
+            for (int i = 0; i < 25; i++) {
+              for (int j = 0; j < 25; j++) {
+               buttonGroup6[i][j] = buttonQueue[i][j];
+              }
+            }
+           buttonGroup6[24][24] = buttonQueueTotal;
+          }
+        } 
+        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
+          // Fill the button queue (after clearing it)
+          // Clear button queue
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = 255;
+            }
+          }
+          // Fill the queue and renew the total
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = buttonGroup6[i][j];
+            }
+          }
+          buttonQueueTotal = buttonGroup6[24][24];
+          buttonQueue[24][24] = 255; // Clear out the extra total
+        }
+      }
+    }
+
+    // Button group seven
+    if (held >= longHold+600 && held < longHold+700) {
+      if (codes[24].isActive) {
+        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
+          // Clear the group
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+             buttonGroup7[i][j] = 255;
+            }
+          }
+          // If there are any buttons added, set them so in the group
+          if (checkButtonsStatus()) {
+            int currentColumn = 0;
+            for (int i = 0; i < 24; i++) {
+              if (codes[i].isActive) {
+               buttonGroup7[0][currentColumn] = i;
+                currentColumn++;
+              }
+            }
+           buttonGroup7[24][24] = 1;
+          }
+          // If there are any buttons in the queue, add them to the group
+          // (This will overwrite any buttons added to the group previously)
+          if (buttonQueueTotal != 0) {
+            for (int i = 0; i < 25; i++) {
+              for (int j = 0; j < 25; j++) {
+               buttonGroup7[i][j] = buttonQueue[i][j];
+              }
+            }
+           buttonGroup7[24][24] = buttonQueueTotal;
+          }
+        } 
+        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
+          // Fill the button queue (after clearing it)
+          // Clear button queue
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = 255;
+            }
+          }
+          // Fill the queue and renew the total
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = buttonGroup7[i][j];
+            }
+          }
+          buttonQueueTotal = buttonGroup7[24][24];
+          buttonQueue[24][24] = 255; // Clear out the extra total
+        }
+      }
+    }
+
+    // Button group eight
+    if (held >= longHold+700 && held < longHold+800) {
+      if (codes[24].isActive) {
+        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
+          // Clear the group
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+             buttonGroup8[i][j] = 255;
+            }
+          }
+          // If there are any buttons added, set them so in the group
+          if (checkButtonsStatus()) {
+            int currentColumn = 0;
+            for (int i = 0; i < 24; i++) {
+              if (codes[i].isActive) {
+               buttonGroup8[0][currentColumn] = i;
+                currentColumn++;
+              }
+            }
+           buttonGroup8[24][24] = 1;
+          }
+          // If there are any buttons in the queue, add them to the group
+          // (This will overwrite any buttons added to the group previously)
+          if (buttonQueueTotal != 0) {
+            for (int i = 0; i < 25; i++) {
+              for (int j = 0; j < 25; j++) {
+               buttonGroup8[i][j] = buttonQueue[i][j];
+              }
+            }
+           buttonGroup8[24][24] = buttonQueueTotal;
+          }
+        } 
+        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
+          // Fill the button queue (after clearing it)
+          // Clear button queue
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = 255;
+            }
+          }
+          // Fill the queue and renew the total
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = buttonGroup8[i][j];
+            }
+          }
+          buttonQueueTotal = buttonGroup8[24][24];
+          buttonQueue[24][24] = 255; // Clear out the extra total
+        }
+      }
+    }
+
+    // Button group nine
+    if (held >= longHold+800 && held < longHold+900) {
+      if (codes[24].isActive) {
+        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
+          // Clear the group
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+             buttonGroup9[i][j] = 255;
+            }
+          }
+          // If there are any buttons added, set them so in the group
+          if (checkButtonsStatus()) {
+            int currentColumn = 0;
+            for (int i = 0; i < 24; i++) {
+              if (codes[i].isActive) {
+               buttonGroup9[0][currentColumn] = i;
+                currentColumn++;
+              }
+            }
+           buttonGroup9[24][24] = 1;
+          }
+          // If there are any buttons in the queue, add them to the group
+          // (This will overwrite any buttons added to the group previously)
+          if (buttonQueueTotal != 0) {
+            for (int i = 0; i < 25; i++) {
+              for (int j = 0; j < 25; j++) {
+               buttonGroup9[i][j] = buttonQueue[i][j];
+              }
+            }
+           buttonGroup9[24][24] = buttonQueueTotal;
+          }
+        } 
+        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
+          // Fill the button queue (after clearing it)
+          // Clear button queue
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = 255;
+            }
+          }
+          // Fill the queue and renew the total
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = buttonGroup9[i][j];
+            }
+          }
+          buttonQueueTotal = buttonGroup9[24][24];
+          buttonQueue[24][24] = 255; // Clear out the extra total
+        }
+      }
+    }
+
+    // Button group ten
+    if (held >= longHold+900 && held < longHold+1000) {
+      if (codes[24].isActive) {
+        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
+          // Clear the group
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+             buttonGroup10[i][j] = 255;
+            }
+          }
+          // If there are any buttons added, set them so in the group
+          if (checkButtonsStatus()) {
+            int currentColumn = 0;
+            for (int i = 0; i < 24; i++) {
+              if (codes[i].isActive) {
+               buttonGroup10[0][currentColumn] = i;
+                currentColumn++;
+              }
+            }
+           buttonGroup10[24][24] = 1;
+          }
+          // If there are any buttons in the queue, add them to the group
+          // (This will overwrite any buttons added to the group previously)
+          if (buttonQueueTotal != 0) {
+            for (int i = 0; i < 25; i++) {
+              for (int j = 0; j < 25; j++) {
+               buttonGroup10[i][j] = buttonQueue[i][j];
+              }
+            }
+           buttonGroup10[24][24] = buttonQueueTotal;
+          }
+        } 
+        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
+          // Fill the button queue (after clearing it)
+          // Clear button queue
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = 255;
+            }
+          }
+          // Fill the queue and renew the total
+          for (int i = 0; i < 25; i++) {
+            for (int j = 0; j < 25; j++) {
+              buttonQueue[i][j] = buttonGroup10[i][j];
+            }
+          }
+          buttonQueueTotal = buttonGroup10[24][24];
+          buttonQueue[24][24] = 255; // Clear out the extra total
+        }
+      }
+    }
+    
     // Serial.println(held);
     // Serial.println(codes[24].isActive);
     held = 0;
     released = 0;
+  }
+
+  
+  // Clear button queue when we enter config mode
+  if (codes[24].isActive == true && configModeLast != codes[24].isActive) {
+    for (int i = 0; i < 25; i++) {
+      for (int j = 0; j < 25; j++) {
+        buttonQueue[i][j] = 255;
+      }
+    }
+    buttonQueuePos = 0;
+    buttonQueueTotal = 0;
   }
 
   if (codes[24].isActive) {   // codes[24] is our configuration code
@@ -226,7 +850,21 @@ void loop() {
     }
     
   } else {
-    if (buttonPinCurrent == LOW) {
+    //  Set isActive for current position to true
+    //  when the button is pressed
+    if (buttonPinCurrent == LOW && buttonPinLast == HIGH) {
+      //  Check columns of current row and set isActive to true
+      for (int i = 0; i < 25; i++) {
+        if (buttonQueue[buttonQueuePos][i] != 255) {
+          codes[buttonQueue[buttonQueuePos][i]].isActive = true;
+        } else {
+          break;
+        }
+      }
+    }
+
+    //  While the button is held, send the input
+    if (buttonPinCurrent == LOW && buttonPinLast == LOW) {
       if (held >= heldTime) {
         if (codes[0].isActive) {
           controller.stickUpdate(STICK_LEFT, 0, -32767);    // LEFT STICK UP
@@ -301,33 +939,22 @@ void loop() {
           controller.buttonUpdate(BUTTON_R3, 1);
         }
       }
-    } else {
+    }
+
+    //  When the button is released, increment row to total
+    if (buttonPinCurrent == HIGH && buttonPinCurrent != buttonPinLast) {
       gp_releaseAll();
+      if (buttonQueuePos != buttonQueueTotal-1) {
+        for (int i = 0; i < 26; i++) {
+          codes[i].isActive = false;
+        }
+        buttonQueuePos++;
+      }
     }
     analogWrite(LED1, 0);
     analogWrite(LED2, 0);
   }
   
-  // Store last activated buttons in array in case they need to be recalled
-  // Do this when we exit config mode
-  // Empty the array first, then fill with the new code
-  if (codes[24].isActive == false && configModeLast != codes[24].isActive) {
-    int j = 0;
-    // Clear the array
-    for (int i = 0; i < 26; i++) {
-      lastActive[i] = -1;
-    }
-    // See which entries should be added to the array
-    // Add items that are active to the array
-    for (int i = 0; i < 24; i++) {
-      if (codes[i].isActive == true) {
-        lastActive[j] = i;
-        j++;
-      }
-    }
-    j = 0;
-  }
-
   //Play sound when entering and exiting configmode
   if (codes[24].isActive == true && configModeLast != codes[24].isActive) {
     tone(speakerPin, note1, delay1);
@@ -346,9 +973,6 @@ void loop() {
   //Receive data
   controller.receiveXinput();
   
-  for (int i = 0; i < 25; i++) {
-    codes[i].notify();
-  }
   buttonPinLast = buttonPinCurrent;
   configModeLast = codes[24].isActive;
   for (int i = 0; i < 25; i++) {
