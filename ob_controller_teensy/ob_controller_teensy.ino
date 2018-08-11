@@ -139,26 +139,31 @@ void addToArray(char toAdd) {
 void recall() {
   int currentRow = 0;
   int currentColumn = 0;
-  
-  //  Find empty row
-  for (int i = 0; i < 25; i++) {
-    if (buttonQueue[i][0] != 255) {
-      currentRow++;
-      buttonQueueTotal++;
-    } else {
-      break;
-    }
+
+  if (!checkButtonsStatus()) {
+    buttonQueue[23][24] = 1;
   }
-  
-  //  Check which buttons are true and store them in an array
-  for (int i = 0; i < 24; i++) {
-    if (codes[i].isActive == true) {
-      //  Add button to array
-      buttonQueue[currentRow][currentColumn] = i;
-      //  Set isActive false to prevent repeat readings
-      codes[i].isActive = false;
-      //  Increment currentColumn
-      currentColumn++; 
+  if (checkButtonsStatus()) {
+    //  Find empty row
+    for (int i = 0; i < 25; i++) {
+      if (buttonQueue[i][0] != 255) {
+        currentRow++;
+        buttonQueueTotal++;
+      } else {
+        break;
+      }
+    }
+    
+    //  Check which buttons are true and store them in an array
+    for (int i = 0; i < 24; i++) {
+      if (codes[i].isActive == true) {
+        //  Add button to array
+        buttonQueue[currentRow][currentColumn] = i;
+        //  Set isActive false to prevent repeat readings
+        codes[i].isActive = false;
+        //  Increment currentColumn
+        currentColumn++; 
+      }
     }
   }
 }
@@ -814,6 +819,7 @@ void loop() {
     }
     buttonQueuePos = 0;
     buttonQueueTotal = 0;
+    buttonQueue[23][24] = 0;
   }
 
   if (codes[24].isActive) {   // codes[24] is our configuration code
@@ -944,11 +950,20 @@ void loop() {
     //  When the button is released, increment row to total
     if (buttonPinCurrent == HIGH && buttonPinCurrent != buttonPinLast) {
       gp_releaseAll();
-      if (buttonQueuePos != buttonQueueTotal-1) {
-        for (int i = 0; i < 26; i++) {
-          codes[i].isActive = false;
+      for (int i = 0; i < 24; i++) {
+        codes[i].isActive = false;
+      }
+      if (buttonQueue[23][24] == 0) {
+        if (buttonQueuePos != buttonQueueTotal-1) {
+          buttonQueuePos++;
         }
-        buttonQueuePos++;
+      } 
+      if (buttonQueue[23][24] == 1) {
+        if (buttonQueuePos != buttonQueueTotal-1) {
+          buttonQueuePos++;
+        } else {
+          buttonQueuePos = 0;
+        }
       }
     }
     analogWrite(LED1, 0);
