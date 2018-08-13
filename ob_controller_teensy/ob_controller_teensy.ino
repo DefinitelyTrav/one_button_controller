@@ -950,19 +950,24 @@ void loop() {
     //  When the button is released, increment row to total
     if (buttonPinCurrent == HIGH && buttonPinCurrent != buttonPinLast) {
       gp_releaseAll();
-      for (int i = 0; i < 24; i++) {
-        codes[i].isActive = false;
-      }
-      if (buttonQueue[23][24] == 0) {
-        if (buttonQueuePos != buttonQueueTotal-1) {
-          buttonQueuePos++;
-        }
-      } 
-      if (buttonQueue[23][24] == 1) {
-        if (buttonQueuePos != buttonQueueTotal-1) {
-          buttonQueuePos++;
-        } else {
-          buttonQueuePos = 0;
+      if (buttonQueue[0][0] != 255) {
+        if (buttonQueue[23][24] == 0) {
+          for (int i = 0; i < 24; i++) {
+            codes[i].isActive = false;
+          } 
+          if (buttonQueuePos != buttonQueueTotal-1) {
+            buttonQueuePos++;
+          }
+        } 
+        if (buttonQueue[23][24] == 1) {
+          for (int i = 0; i < 24; i++) {
+            codes[i].isActive = false;
+          } 
+          if (buttonQueuePos != buttonQueueTotal-1) {
+            buttonQueuePos++;
+          } else {
+            buttonQueuePos = 0;
+          }
         }
       }
     }
