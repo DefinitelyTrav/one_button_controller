@@ -42,6 +42,10 @@ int buttonGroup8 [25][25] = {};
 int buttonGroup9 [25][25] = {};
 int buttonGroup10 [25][25] = {};
 
+int16_t leftAnalog[2] = {0,0};
+int16_t rightAnalog[2] = {0,0};
+int POVSwitch[4] = {0,0,0,0};
+
 // get the last `size` codes from the currentCode list
 void getRecentcodes(char *code, int size)
 {
@@ -872,17 +876,25 @@ void loop() {
     //  While the button is held, send the input
     if (buttonPinCurrent == LOW && buttonPinLast == LOW) {
       if (held >= heldTime) {
-        if (codes[0].isActive) {
-          controller.stickUpdate(STICK_LEFT, 0, -32767);    // LEFT STICK UP
+        if (codes[0].isActive || codes[1].isActive) {
+          if (codes[0].isActive) {
+            leftAnalog[1] = 32767;    // LEFT STICK UP
+          }
+          if (codes[1].isActive) {
+            leftAnalog[1] = -32767;    // LEFT STICK DOWN
+          }
+        } else {
+          leftAnalog[1] = 0;
         }
-        if (codes[1].isActive) {
-          controller.stickUpdate(STICK_LEFT, 0, 32767);   // LEFT STICK DOWN
-        }
-        if (codes[2].isActive) {
-          controller.stickUpdate(STICK_LEFT, -32767, 0);   // LEFT STICK LEFT
-        }
-        if (codes[3].isActive) {
-          controller.stickUpdate(STICK_LEFT, 32767, 0);    // LEFT STICK RIGHT
+        if (codes[2].isActive || codes[3].isActive) {
+          if (codes[2].isActive) {
+            leftAnalog[0] = -32767;    // LEFT STICK LEFT
+          }
+          if (codes[3].isActive) {
+            leftAnalog[0] = 32767;    // LEFT STICK RIGHT
+          }
+        } else {
+          leftAnalog[0] = 0;
         }
         if (codes[4].isActive) {
           controller.buttonUpdate(BUTTON_A, 1);
@@ -914,29 +926,45 @@ void loop() {
         if (codes[13].isActive) {
           controller.buttonUpdate(BUTTON_BACK, 1);
         }
-        if (codes[14].isActive) {
-          controller.stickUpdate(STICK_RIGHT, 0, -32767);    // RIGHT STICK UP
+        if (codes[14].isActive || codes[15].isActive) {
+          if (codes[14].isActive) {
+            rightAnalog[1] = 32767;    // RIGHT STICK UP
+          }
+          if (codes[15].isActive) {
+            rightAnalog[1] = -32767;    // RIGHT STICK DOWN
+          }
+        } else {
+          rightAnalog[1] = 0;
         }
-        if (codes[15].isActive) {
-          controller.stickUpdate(STICK_RIGHT, 0, 32767);   // RIGHT STICK DOWN
-        }
-        if (codes[16].isActive) {
-          controller.stickUpdate(STICK_RIGHT, -32767, 0);   // RIGHT STICK LEFT
-        }
-        if (codes[17].isActive) {
-          controller.stickUpdate(STICK_RIGHT, 32767, 0);    // RIGHT STICK RIGHT
+        if (codes[16].isActive || codes[17].isActive) {
+          if (codes[16].isActive) {
+            rightAnalog[0] = -32767;    // RIGHT STICK LEFT
+          }
+          if (codes[17].isActive) {
+            rightAnalog[0] = 32767;    // RIGHT STICK RIGHT
+          }
+        } else {
+          rightAnalog[0] = 0;
         }
         if (codes[18].isActive) {
-          controller.dpadUpdate(1,0,0,0);
+          POVSwitch[0] = 1;
+        } else {
+          POVSwitch[0] = 0;
         }
         if (codes[19].isActive) {
-          controller.dpadUpdate(0,1,0,0);
+          POVSwitch[1] = 1;
+        } else {
+          POVSwitch[1] = 0;
         }
         if (codes[20].isActive) {
-          controller.dpadUpdate(0,0,1,0);
+          POVSwitch[2] = 1;
+        } else {
+          POVSwitch[2] = 0;
         }
         if (codes[21].isActive) {
-          controller.dpadUpdate(0,0,0,1);
+          POVSwitch[3] = 1;
+        } else {
+          POVSwitch[3] = 0;
         }
         if (codes[22].isActive) {
           controller.buttonUpdate(BUTTON_L3, 1);
@@ -944,6 +972,9 @@ void loop() {
         if (codes[23].isActive) {
           controller.buttonUpdate(BUTTON_R3, 1);
         }
+        controller.stickUpdate(STICK_LEFT, leftAnalog[0], leftAnalog[1]);
+        controller.stickUpdate(STICK_RIGHT, rightAnalog[0], rightAnalog[1]);
+        controller.dpadUpdate(POVSwitch[0],POVSwitch[1],POVSwitch[2],POVSwitch[3]); 
       }
     }
 
