@@ -1,4 +1,3 @@
-// MSF_XINPUT - Version: Latest 
 #include <xinput.h>
 
 int buttonPin = 2;
@@ -152,7 +151,6 @@ void recall() {
     for (int i = 0; i < 25; i++) {
       if (buttonQueue[i][0] != 255) {
         currentRow++;
-        buttonQueueTotal++;
       } else {
         break;
       }
@@ -169,6 +167,7 @@ void recall() {
         currentColumn++; 
       }
     }
+    buttonQueueTotal++;
   }
 }
 
