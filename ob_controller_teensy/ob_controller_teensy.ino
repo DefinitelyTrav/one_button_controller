@@ -1,1031 +1,389 @@
-#include <xinput.h>
+#include <DebounceInput.h>
+#include <XInput.h>
 
-int buttonPin = 2;
+// Pin declarations
+const int BUTTON_PIN = 2;
+const int LED1_PIN = 3;
+const int LED2_PIN = 4;
 
-int held = 0;
-int heldTime = 50;
-int longHold = 150;
-int released = 0;
-int releasedTime = 75;
+DebouncedInput BUTTON(BUTTON_PIN);
 
-int buttonPinLast = HIGH;
-int buttonPinCurrent = HIGH;
+// Assign DOT and DASH numbers so arrays are way simpler.
+const int DOT = 1;
+const int DASH = 2;
 
-int LED1 = 3;
-int LED2 = 4;
+unsigned long DASH_LENGTH = 125; // Value in milliseconds. DOT_LENGTH would be any value < 125.
+unsigned long RUN_TIME = 250;    // Value in milliseconds. Time after release until press is read and run.
 
-char currentCode[6] = {0};
-int lastActive[26] = {-1};
+int MORSE[100];
+int MORSE_POS = 0;
+int MORSE_MAX = 0;
 
-int speakerPin = 8;
-int note1 = 659;
-int note2 = 1047;
-int note3 = 1760;
-int delay1 = 100;
-int delay2 = 100;
-
-bool configModeLast = false;
-
-int buttonQueue [25][25] = {};
-int buttonQueuePos = 0;
-int buttonQueueTotal = 0;
-
-int buttonGroup1 [25][25] = {};
-int buttonGroup2 [25][25] = {};
-int buttonGroup3 [25][25] = {};
-int buttonGroup4 [25][25] = {};
-int buttonGroup5 [25][25] = {};
-int buttonGroup6 [25][25] = {};
-int buttonGroup7 [25][25] = {};
-int buttonGroup8 [25][25] = {};
-int buttonGroup9 [25][25] = {};
-int buttonGroup10 [25][25] = {};
-
-int16_t leftAnalog[2] = {0,0};
-int16_t rightAnalog[2] = {0,0};
-int POVSwitch[4] = {0,0,0,0};
-
-// get the last `size` codes from the currentCode list
-void getRecentcodes(char *code, int size)
-{
-  int j = 0;
-  for (int i = 6 - size; i < 6; i++) {
-    code[j++] = currentCode[i];
-  }
-}
-
-class input {
-  public:
-  char code[6];   //Code
-  int hasLength;  //Length
-  bool isActive;  //isActive
-  bool isActiveLast;
-  char key;
-
-  input(char c1[6], int l1, bool a1, bool a2, char k1) {
-    memset(code, 0, 6);
-    memcpy(code, c1, l1);
-    hasLength = l1;
-    isActive = a1;
-    isActiveLast = a2;
-    key = k1;
-  }
-
-  void getMatch() {
-    // currentCode is the sequence from the button
-    // code is this input's sequence, forwards
-    // if they match, set isActive to true
-    char current[hasLength];
-    getRecentcodes(current, hasLength);
-
-    if (memcmp(code, current, hasLength) == 0) {
-      if (key != '&' || key != '$') {
-        isActive = !isActive;
-        addToArray(' ');
-      } 
-      if (key == '&') {
-        isActive = false;
-      }
-      if (key == '$') {
-        recall();
-      }
-    }
-  }
-  
-  void notify() {
-    if (isActive != isActiveLast) {
-      Serial.print(code);
-      Serial.print(" is ");
-      Serial.println(isActive);
-    }
-  }
+const int CODE_MAX = 24;
+const int CODE_LENGTH = 4;
+int CODE[CODE_MAX][CODE_LENGTH] = {
+  {DOT,   0,    0,    0},                          // A
+  {DASH,  0,    0,    0},         // B
+  {DOT,   DOT,  0,    0},         // X
+  {DASH,  DASH, 0,    0},         // Y
+  {DASH,  DOT,  0,    0},         // LEFT BUMPER
+  {DOT,   DASH, 0,    0},         // RIGHT BUMPER
+  {DOT,   DOT,  DOT,  0},         // LEFT STICK UP
+  {DOT,   DASH, DOT,  0},         // LEFT STICK DOWN
+  {DASH,  DOT,  DOT,  0},         // LEFT STICK LEFT
+  {DOT,   DOT,  DASH, 0},         // LEFT STICK RIGHT
+  {DASH,  DASH, DOT,  0},         // LEFT TRIGGER
+  {DOT,   DASH, DASH, 0},         // RIGHT TRIGGER
+  {DASH,  DOT,  DASH, 0},         // START
+  {DASH,  DASH, DASH, 0},         // BACK
+  {DOT,   DASH, DASH, DOT},       // RIGHT STICK UP
+  {DASH,  DOT,  DOT,  DASH},      // RIGHT STICK DOWN
+  {DASH,  DASH, DOT,  DOT},       // RIGHT STICK LEFT
+  {DOT,   DOT,  DASH, DASH},      // RIGHT STICK RIGHT
+  {DASH,  DOT,  DOT,  DOT},       // L3
+  {DOT,   DOT,  DOT,  DASH},      // R3
+  {DOT,   DOT,  DOT,  DOT},       // DPAD UP
+  {DASH,  DASH, DASH, DASH},      // DPAD DOWN
+  {DASH,  DOT,  DASH, DOT},       // DPAD LEFT
+  {DOT,   DASH, DOT,  DASH}       // DPAD RIGHT
 };
 
-input codes[26] = {
-  input(" .. ", 4, false, false, 'a'),       //L_STICK_UP
-  input(" -- ", 4, false, false, 'b'),       //L_STICK_DOWN
-  input(" .- ", 4, false, false, 'c'),       //L_STICK_LEFT
-  input(" -. ", 4, false, false, 'd'),       //L_STICK_RIGHT
-  input(" ... ", 5, false, false, 'e'),      //BTN_DOWN
-  input(" -.. ", 5, false, false, 'f'),      //BTN_RIGHT
-  input(" ..- ", 5, false, false, 'g'),      //BTN_LEFT
-  input(" --- ", 5, false, false, 'h'),      //BTN_UP
-  input(" --. ", 5, false, false, 'i'),      //BTN_RIGHT SHOULDER
-  input(" .-. ", 5, false, false, 'j'),      //BTN_RIGHT TRIGGER
-  input(" .-- ", 5, false, false, 'k'),      //BTN_LEFT SHOULDER
-  input(" -.- ", 5, false, false, 'l'),      //BTN_LEFT TRIGGER
-  input(" -... ", 6, false, false, 'm'),     //BTN_ST
-  input(" ...- ", 6, false, false, 'n'),     //BTN_SE
-  input(" .--. ", 6, false, false, 'o'),     //R_STICK_UP
-  input(" -..- ", 6, false, false, 'p'),     //R_STICK_DOWN
-  input(" ..-- ", 6, false, false, 'q'),     //R_STICK_LEFT
-  input(" --.. ", 6, false, false, 'r'),     //R_STICK_RIGHT
-  input(" .-.. ", 6, false, false, 's'),     //DPAD_UP
-  input(" ..-. ", 6, false, false, 't'),     //DPAD_DOWN
-  input(" .-.- ", 6, false, false, 'u'),     //DPAD_LEFT
-  input(" -.-. ", 6, false, false, 'v'),     //DPAD_RIGHT
-  input(" .... ", 6, false, false, 'w'),     //BTN_L3
-  input(" ---- ", 6, false, false, 'x'),     //BTN_R3
-  input(" . ", 3, false, false, '&'),        //CONFIG MODE
-  input(" - ", 3, false, false, '$')         //RECALL
-};
+// Button variables
+bool BUTTON_PRESSED, BUTTON_PRESSED_LAST;
+unsigned long TIME, PRESS_TIME, RELEASE_TIME;
+int DELAY_TIMES[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int DELAY_MAX = 25000;
 
-void addToArray(char toAdd) {
-  currentCode[0] = currentCode[1];
-  currentCode[1] = currentCode[2];
-  currentCode[2] = currentCode[3];
-  currentCode[3] = currentCode[4];
-  currentCode[4] = currentCode[5];
-  currentCode[5] = toAdd;
-}
-
-void recall() {
-  int currentRow = 0;
-  int currentColumn = 0;
-
-  if (!checkButtonsStatus()) {
-    buttonQueue[23][24] = 1;
-  }
-  if (checkButtonsStatus()) {
-    //  Find empty row
-    for (int i = 0; i < 25; i++) {
-      if (buttonQueue[i][0] != 255) {
-        currentRow++;
-      } else {
-        break;
-      }
-    }
-    
-    //  Check which buttons are true and store them in an array
-    for (int i = 0; i < 24; i++) {
-      if (codes[i].isActive == true) {
-        //  Add button to array
-        buttonQueue[currentRow][currentColumn] = i;
-        //  Set isActive false to prevent repeat readings
-        codes[i].isActive = false;
-        //  Increment currentColumn
-        currentColumn++; 
-      }
-    }
-    buttonQueueTotal++;
-  }
-}
-
-XINPUT controller(NO_LED);
-
-void gp_releaseAll() {
-  // Release all buttons
-  uint8_t buttonStatus[11];
-  for (int i = 0; i < 11; i++) {
-    buttonStatus[i] = 0;
-  }
-  controller.buttonArrayUpdate(buttonStatus);
-
-  // Reset Dpad
-  controller.dpadUpdate(0,0,0,0);
-
-  // Reset triggers
-  controller.triggerUpdate(0,0);
-
-  //Reset sticks
-  controller.stickUpdate(STICK_LEFT, 0, 0);
-  controller.stickUpdate(STICK_RIGHT, 0, 0);
-}
-
-bool checkButtonsStatus() {
-  int v = 0;
-  for (int i = 0; i < 24; i++) {
-    if (codes[i].isActive) {
-      v++;
-    }
-  }
-  if (v > 0) {
-    return true;
-  } else {
-    return false;
-  }
-}
+// Booleans for stick.
+bool LEFT_UP = false;
+bool LEFT_DOWN = false;
+bool LEFT_LEFT = false;
+bool LEFT_RIGHT = false;
+bool RIGHT_UP = false;
+bool RIGHT_DOWN = false;
+bool RIGHT_LEFT = false;
+bool RIGHT_RIGHT = false;
+bool POV_UP = false;
+bool POV_DOWN = false;
+bool POV_LEFT = false;
+bool POV_RIGHT = false;
 
 void setup() {
-  pinMode(buttonPin, INPUT_PULLUP);
-  pinMode(LED1, OUTPUT);
-  pinMode(LED2, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  pinMode(LED1_PIN, OUTPUT);
+  pinMode(LED2_PIN, OUTPUT);
 
-  // Serial.begin(9600);
+  XInput.begin();
+  Serial.begin(9600);
 }
 
 void loop() {
-  buttonPinCurrent = digitalRead(buttonPin);
-  if (buttonPinCurrent == LOW) {
-    held++;
-    if (codes[24].isActive) {
-      if (held == longHold) {
-        tone(speakerPin, note3, delay1/2);
-      }
-      if (held == longHold+100) {
-        tone(speakerPin, note3, delay1/2);
-      }
-      if (held == longHold+200) {
-        tone(speakerPin, note3, delay1/2);
-      }
-      if (held == longHold+300) {
-        tone(speakerPin, note3, delay1/2);
-      }
-      if (held == longHold+400) {
-        tone(speakerPin, note3, delay1/2);
-      }
-      if (held == longHold+500) {
-        tone(speakerPin, note3, delay1/2);
-      }
-      if (held == longHold+600) {
-        tone(speakerPin, note3, delay1/2);
-      }
-      if (held == longHold+700) {
-        tone(speakerPin, note3, delay1/2);
-      }
-      if (held == longHold+800) {
-        tone(speakerPin, note3, delay1/2);
-      }
-      if (held == longHold+900) {
-        tone(speakerPin, note3, delay1/2);
-      }
-      if (held == longHold+1000) {
-        tone(speakerPin, note3, delay1/2);
-        delay(delay1/2);
-        tone(speakerPin, note2, delay1);
-      }
+  TIME = millis();
+  
+  // Assign variables
+  BUTTON.read();
+  
+  // Determine whether button press was dot or dash.
+  if (BUTTON.falling()) {
+    // Store the time when the button is pressed.
+    PRESS_TIME = 0;
+    PRESS_TIME = TIME;
+
+    // Debug
+    //Serial.println("BUTTON PRESSED");
+  } else if (BUTTON.rising()) {
+    // Store the time when the button is released.
+    RELEASE_TIME = 0;
+    RELEASE_TIME = TIME;
+    // Store DOT or DASH in MORSE.
+    MORSE[MORSE_POS] = DOT_OR_DASH();
+    MORSE_POS++;
+
+    // Debug
+    //Serial.println("BUTTON RELEASED");
+    DEBUG_MORSE();
+  }
+
+  // If time since release is greater than RUN_TIME, do the needful.
+  if (TIME - RELEASE_TIME == RUN_TIME && BUTTON.high()) {
+    // Store the current position of MORSE as MORSE_MAX.
+    // Subtract one so we have the true max.
+    MORSE_MAX = MORSE_POS;
+    Serial.print("MORSE MAX: ");
+    Serial.println(MORSE_MAX);
+
+    // Compare MORSE to CODE to sort out what needs to be done.
+    switch (FIND_BUTTON()) {
+      case 1:
+        XInput.setButton(BUTTON_A, true);
+        Serial.println("A");
+        break;
+      case 2:
+        XInput.setButton(BUTTON_B, true);
+        Serial.println("B");
+        break;
+      case 3:
+        XInput.setButton(BUTTON_X, true);
+        Serial.println("X");
+        break;
+      case 4:
+        XInput.setButton(BUTTON_Y, true);
+        Serial.println("Y");
+        break;
+      case 5:
+        XInput.setButton(BUTTON_LB, true);
+        Serial.println("LB");
+        break;
+      case 6:
+        XInput.setButton(BUTTON_RB, true);
+        Serial.println("RB");
+        break;
+      case 7:
+        LEFT_UP = !LEFT_UP;
+        Serial.println("LEFT STICK UP");
+        break;
+      case 8:
+        LEFT_DOWN = !LEFT_DOWN;
+        Serial.println("LEFT STICK DOWN");
+        break;
+      case 9:
+        LEFT_LEFT = !LEFT_LEFT;
+        Serial.println("LEFT STICK LEFT");
+        break;
+      case 10:
+        LEFT_RIGHT = !LEFT_RIGHT;
+        Serial.println("LEFT STICK RIGHT");
+        break;
+      case 11:
+        XInput.setButton(TRIGGER_LEFT, true);
+        Serial.println("LEFT TRIGGER");
+        break;
+      case 12:
+        XInput.setButton(TRIGGER_RIGHT, true);
+        Serial.println("RIGHT TRIGGER");
+        break;
+      case 13:
+        XInput.setButton(BUTTON_START, true);
+        Serial.println("START");
+        break;
+      case 14:
+        XInput.setButton(BUTTON_BACK, true);
+        Serial.println("BACK");
+        break;
+      case 15:
+        RIGHT_UP = !RIGHT_UP;
+        Serial.println("RIGHT STICK UP");
+        break;
+      case 16:
+        RIGHT_DOWN = !RIGHT_DOWN;
+        Serial.println("RIGHT STICK DOWN");
+        break;
+      case 17:
+        RIGHT_LEFT = !RIGHT_LEFT;
+        Serial.println("RIGHT STICK LEFT");
+        break;
+      case 18:
+        RIGHT_RIGHT = !RIGHT_RIGHT;
+        Serial.println("RIGHT STICK RIGHT");
+        break;
+      case 19:
+        XInput.setButton(BUTTON_L3, true);
+        Serial.println("L3");
+        break;
+      case 20:
+        XInput.setButton(BUTTON_R3, true);
+        Serial.println("R3");
+        break;
+      case 21:
+        POV_UP = true;
+        Serial.println("DPAD UP");
+        break;
+      case 22:
+        POV_DOWN = true;
+        Serial.println("DPAD DOWN");
+        break;
+      case 23:
+        POV_LEFT = true;
+        Serial.println("DPAD LEFT");
+        break;
+      case 24:
+        POV_RIGHT = true;
+        Serial.println("DPAD RIGHT");
+        break;
     }
-    delay(1);
+    
+    // Reset array.
+    memset(MORSE, 0, sizeof(MORSE));
+    MORSE_POS = 0;
+    MORSE_MAX = 0;
+    
+    RELEASE_TIME = 0;
+
+    // Debug
+    Serial.println("RUN");
+  }
+
+  XInput.setJoystick(JOY_LEFT, LEFT_UP, LEFT_DOWN, LEFT_LEFT, LEFT_RIGHT);
+  XInput.setJoystick(JOY_RIGHT, RIGHT_UP, RIGHT_DOWN, RIGHT_LEFT, RIGHT_RIGHT);
+
+  // Reset buttons after delay.
+  if (XInput.getButton(BUTTON_A)) {
+    DELAY_TIMES[0]++;
+    if (DELAY_TIMES[0] >= DELAY_MAX) {
+      DELAY_TIMES[0] = 0;
+      XInput.setButton(BUTTON_A, false);
+    }
+  }
+  if (XInput.getButton(BUTTON_B)) {
+    DELAY_TIMES[1]++;
+    if (DELAY_TIMES[1] >= DELAY_MAX) {
+      DELAY_TIMES[1] = 0;
+      XInput.setButton(BUTTON_B, false);
+    }
+  }
+  if (XInput.getButton(BUTTON_X)) {
+    DELAY_TIMES[2]++;
+    if (DELAY_TIMES[2] >= DELAY_MAX) {
+      DELAY_TIMES[2] = 0;
+      XInput.setButton(BUTTON_X, false);
+    }
+  }
+  if (XInput.getButton(BUTTON_Y)) {
+    DELAY_TIMES[3]++;
+    if (DELAY_TIMES[3] >= DELAY_MAX) {
+      DELAY_TIMES[3] = 0;
+      XInput.setButton(BUTTON_Y, false);
+    }
+  }
+  if (XInput.getButton(BUTTON_LB)) {
+    DELAY_TIMES[4]++;
+    if (DELAY_TIMES[4] >= DELAY_MAX) {
+      DELAY_TIMES[4] = 0;
+      XInput.setButton(BUTTON_LB, false);
+    }
+  }
+  if (XInput.getButton(BUTTON_RB)) {
+    DELAY_TIMES[5]++;
+    if (DELAY_TIMES[5] >= DELAY_MAX) {
+      DELAY_TIMES[5] = 0;
+      XInput.setButton(BUTTON_RB, false);
+    }
+  }
+  if (XInput.getTrigger(TRIGGER_LEFT) > 0) {
+    DELAY_TIMES[6]++;
+    if (DELAY_TIMES[6] >= DELAY_MAX) {
+      DELAY_TIMES[6] = 0;
+      XInput.setButton(TRIGGER_LEFT, false);
+    }
+  }
+  if (XInput.getTrigger(TRIGGER_RIGHT) > 0) {
+    DELAY_TIMES[7]++;
+    if (DELAY_TIMES[7] >= DELAY_MAX) {
+      DELAY_TIMES[7] = 0;
+      XInput.setButton(TRIGGER_RIGHT, false);
+    }
+  }
+  if (XInput.getButton(BUTTON_START)) {
+    DELAY_TIMES[8]++;
+    if (DELAY_TIMES[8] >= DELAY_MAX) {
+      DELAY_TIMES[8] = 0;
+      XInput.setButton(BUTTON_START, false);
+    }
+  }
+  if (XInput.getButton(BUTTON_BACK)) {
+    DELAY_TIMES[9]++;
+    if (DELAY_TIMES[9] >= DELAY_MAX) {
+      DELAY_TIMES[9] = 0;
+      XInput.setButton(BUTTON_BACK, false);
+    }
+  }
+  if (XInput.getButton(BUTTON_L3)) {
+    DELAY_TIMES[10]++;
+    if (DELAY_TIMES[10] >= DELAY_MAX) {
+      DELAY_TIMES[10] = 0;
+      XInput.setButton(BUTTON_L3, false);
+    }
+  }
+  if (XInput.getButton(BUTTON_R3)) {
+    DELAY_TIMES[11]++;
+    if (DELAY_TIMES[11] >= DELAY_MAX) {
+      DELAY_TIMES[11] = 0;
+      XInput.setButton(BUTTON_R3, false);
+    }
+  }
+  if (POV_UP) {
+    DELAY_TIMES[12]++;
+    if (DELAY_TIMES[12] >= DELAY_MAX) {
+      DELAY_TIMES[12] = 0;
+      POV_UP = false;
+    }
+  }
+  if (POV_DOWN) {
+    DELAY_TIMES[13]++;
+    if (DELAY_TIMES[13] >= DELAY_MAX) {
+      DELAY_TIMES[13] = 0;
+      POV_DOWN = false;
+    }
+  }
+  if (POV_LEFT) {
+    DELAY_TIMES[14]++;
+    if (DELAY_TIMES[14] >= DELAY_MAX) {
+      DELAY_TIMES[14] = 0;
+      POV_LEFT = false;
+    }
+  }
+  if (POV_RIGHT) {
+    DELAY_TIMES[15]++;
+    if (DELAY_TIMES[15] >= DELAY_MAX) {
+      DELAY_TIMES[15] = 0;
+      POV_RIGHT = false;
+    }
+  }
+  
+  XInput.setDpad(POV_UP, POV_DOWN, POV_LEFT, POV_RIGHT);
+  
+  XInput.send();
+  
+  // Store last BUTTON_PRESSED state for state change checking
+  BUTTON_PRESSED_LAST = BUTTON_PRESSED;
+
+ if (BUTTON_PRESSED) {
+    RELEASE_TIME = 0;
+ }
+}
+
+int DOT_OR_DASH() {
+  unsigned long t = RELEASE_TIME - PRESS_TIME;
+  if (t >= DASH_LENGTH) {
+    return DASH;
   } else {
-    released++;
-    delay(1);
-    if (codes[24].isActive) {
-      if (released == releasedTime) {
-        addToArray(' ');
-        // Serial.println(currentCode);
+    return DOT;
+  }
+}
+
+uint8_t FIND_BUTTON() {
+  for (uint8_t i = 1; i <= CODE_MAX; i++) { // Loop through all the codes.
+    int c = 0;
+    for (int j = 0; j < MORSE_MAX; j++) {  // Loop through the current code.
+      if (MORSE[j] == CODE[i-1][j]) {
+        c++;
+        Serial.print("LOOP COUNT: ");
+        Serial.println(c);
+        if (c == MORSE_MAX) {
+          Serial.print("CASE: ");
+          Serial.println(i);
+          return i;
+        }
       }
     }
   }
+  return 0;
+}
 
-  if (buttonPinCurrent == HIGH && buttonPinLast == LOW) {
-    if (held <= heldTime){
-      if (codes[24].isActive) {
-        addToArray('.');
-        tone(speakerPin, note1, delay1/2);
-        // Serial.println(currentCode);
-      } else {
-        codes[24].isActive = !codes[24].isActive;
-      }
-    }
-    
-    if (held > heldTime && held < longHold) {
-      if (codes[24].isActive) {
-        addToArray('-');
-        tone(speakerPin, note2, delay1*2);
-        // Serial.println(currentCode);
-      }
-    }
-    
-    // Button group one
-    if (held >= longHold && held < longHold+100) {
-      if (codes[24].isActive) {
-        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
-          // Clear the group
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonGroup1[i][j] = 255;
-            }
-          }
-          // If there are any buttons added, set them so in the group
-          if (checkButtonsStatus()) {
-            int currentColumn = 0;
-            for (int i = 0; i < 24; i++) {
-              if (codes[i].isActive) {
-                buttonGroup1[0][currentColumn] = i;
-                currentColumn++;
-              }
-            }
-            buttonGroup1[24][24] = 1;
-          }
-          // If there are any buttons in the queue, add them to the group
-          // (This will overwrite any buttons added to the group previously)
-          if (buttonQueueTotal != 0) {
-            for (int i = 0; i < 25; i++) {
-              for (int j = 0; j < 25; j++) {
-                buttonGroup1[i][j] = buttonQueue[i][j];
-              }
-            }
-            buttonGroup1[24][24] = buttonQueueTotal;
-          }
-        } 
-        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
-          // Fill the button queue (after clearing it)
-          // Clear button queue
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = 255;
-            }
-          }
-          // Fill the queue and renew the total
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = buttonGroup1[i][j];
-            }
-          }
-          buttonQueueTotal = buttonGroup1[24][24];
-          buttonQueue[24][24] = 255; // Clear out the extra total
-        }
-      }
-    }
-    
-    // Button group two
-    if (held >= longHold+100 && held < longHold+200) {
-      if (codes[24].isActive) {
-        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
-          // Clear the group
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonGroup2[i][j] = 255;
-            }
-          }
-          // If there are any buttons added, set them so in the group
-          if (checkButtonsStatus()) {
-            int currentColumn = 0;
-            for (int i = 0; i < 24; i++) {
-              if (codes[i].isActive) {
-                buttonGroup2[0][currentColumn] = i;
-                currentColumn++;
-              }
-            }
-            buttonGroup2[24][24] = 1;
-          }
-          // If there are any buttons in the queue, add them to the group
-          // (This will overwrite any buttons added to the group previously)
-          if (buttonQueueTotal != 0) {
-            for (int i = 0; i < 25; i++) {
-              for (int j = 0; j < 25; j++) {
-                buttonGroup2[i][j] = buttonQueue[i][j];
-              }
-            }
-            buttonGroup2[24][24] = buttonQueueTotal;
-          }
-        } 
-        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
-          // Fill the button queue (after clearing it)
-          // Clear button queue
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = 255;
-            }
-          }
-          // Fill the queue and renew the total
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = buttonGroup2[i][j];
-            }
-          }
-          buttonQueueTotal = buttonGroup2[24][24];
-          buttonQueue[24][24] = 255; // Clear out the extra total
-        }
-      }
-    }
-
-    // Button group three
-    if (held >= longHold+200 && held < longHold+300) {
-      if (codes[24].isActive) {
-        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
-          // Clear the group
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-             buttonGroup3[i][j] = 255;
-            }
-          }
-          // If there are any buttons added, set them so in the group
-          if (checkButtonsStatus()) {
-            int currentColumn = 0;
-            for (int i = 0; i < 24; i++) {
-              if (codes[i].isActive) {
-               buttonGroup3[0][currentColumn] = i;
-                currentColumn++;
-              }
-            }
-           buttonGroup3[24][24] = 1;
-          }
-          // If there are any buttons in the queue, add them to the group
-          // (This will overwrite any buttons added to the group previously)
-          if (buttonQueueTotal != 0) {
-            for (int i = 0; i < 25; i++) {
-              for (int j = 0; j < 25; j++) {
-               buttonGroup3[i][j] = buttonQueue[i][j];
-              }
-            }
-           buttonGroup3[24][24] = buttonQueueTotal;
-          }
-        } 
-        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
-          // Fill the button queue (after clearing it)
-          // Clear button queue
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = 255;
-            }
-          }
-          // Fill the queue and renew the total
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = buttonGroup3[i][j];
-            }
-          }
-          buttonQueueTotal = buttonGroup3[24][24];
-          buttonQueue[24][24] = 255; // Clear out the extra total
-        }
-      }
-    }
-
-    // Button group four
-    if (held >= longHold+300 && held < longHold+400) {
-      if (codes[24].isActive) {
-        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
-          // Clear the group
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-             buttonGroup4[i][j] = 255;
-            }
-          }
-          // If there are any buttons added, set them so in the group
-          if (checkButtonsStatus()) {
-            int currentColumn = 0;
-            for (int i = 0; i < 24; i++) {
-              if (codes[i].isActive) {
-               buttonGroup4[0][currentColumn] = i;
-                currentColumn++;
-              }
-            }
-           buttonGroup4[24][24] = 1;
-          }
-          // If there are any buttons in the queue, add them to the group
-          // (This will overwrite any buttons added to the group previously)
-          if (buttonQueueTotal != 0) {
-            for (int i = 0; i < 25; i++) {
-              for (int j = 0; j < 25; j++) {
-               buttonGroup4[i][j] = buttonQueue[i][j];
-              }
-            }
-           buttonGroup4[24][24] = buttonQueueTotal;
-          }
-        } 
-        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
-          // Fill the button queue (after clearing it)
-          // Clear button queue
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = 255;
-            }
-          }
-          // Fill the queue and renew the total
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = buttonGroup4[i][j];
-            }
-          }
-          buttonQueueTotal = buttonGroup4[24][24];
-          buttonQueue[24][24] = 255; // Clear out the extra total
-        }
-      }
-    }
-
-    // Button group five
-    if (held >= longHold+400 && held < longHold+500) {
-      if (codes[24].isActive) {
-        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
-          // Clear the group
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-             buttonGroup5[i][j] = 255;
-            }
-          }
-          // If there are any buttons added, set them so in the group
-          if (checkButtonsStatus()) {
-            int currentColumn = 0;
-            for (int i = 0; i < 24; i++) {
-              if (codes[i].isActive) {
-               buttonGroup5[0][currentColumn] = i;
-                currentColumn++;
-              }
-            }
-           buttonGroup5[24][24] = 1;
-          }
-          // If there are any buttons in the queue, add them to the group
-          // (This will overwrite any buttons added to the group previously)
-          if (buttonQueueTotal != 0) {
-            for (int i = 0; i < 25; i++) {
-              for (int j = 0; j < 25; j++) {
-               buttonGroup5[i][j] = buttonQueue[i][j];
-              }
-            }
-           buttonGroup5[24][24] = buttonQueueTotal;
-          }
-        } 
-        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
-          // Fill the button queue (after clearing it)
-          // Clear button queue
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = 255;
-            }
-          }
-          // Fill the queue and renew the total
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = buttonGroup5[i][j];
-            }
-          }
-          buttonQueueTotal = buttonGroup5[24][24];
-          buttonQueue[24][24] = 255; // Clear out the extra total
-        }
-      }
-    }
-
-    // Button group six
-    if (held >= longHold+500 && held < longHold+600) {
-      if (codes[24].isActive) {
-        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
-          // Clear the group
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-             buttonGroup6[i][j] = 255;
-            }
-          }
-          // If there are any buttons added, set them so in the group
-          if (checkButtonsStatus()) {
-            int currentColumn = 0;
-            for (int i = 0; i < 24; i++) {
-              if (codes[i].isActive) {
-               buttonGroup6[0][currentColumn] = i;
-                currentColumn++;
-              }
-            }
-           buttonGroup6[24][24] = 1;
-          }
-          // If there are any buttons in the queue, add them to the group
-          // (This will overwrite any buttons added to the group previously)
-          if (buttonQueueTotal != 0) {
-            for (int i = 0; i < 25; i++) {
-              for (int j = 0; j < 25; j++) {
-               buttonGroup6[i][j] = buttonQueue[i][j];
-              }
-            }
-           buttonGroup6[24][24] = buttonQueueTotal;
-          }
-        } 
-        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
-          // Fill the button queue (after clearing it)
-          // Clear button queue
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = 255;
-            }
-          }
-          // Fill the queue and renew the total
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = buttonGroup6[i][j];
-            }
-          }
-          buttonQueueTotal = buttonGroup6[24][24];
-          buttonQueue[24][24] = 255; // Clear out the extra total
-        }
-      }
-    }
-
-    // Button group seven
-    if (held >= longHold+600 && held < longHold+700) {
-      if (codes[24].isActive) {
-        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
-          // Clear the group
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-             buttonGroup7[i][j] = 255;
-            }
-          }
-          // If there are any buttons added, set them so in the group
-          if (checkButtonsStatus()) {
-            int currentColumn = 0;
-            for (int i = 0; i < 24; i++) {
-              if (codes[i].isActive) {
-               buttonGroup7[0][currentColumn] = i;
-                currentColumn++;
-              }
-            }
-           buttonGroup7[24][24] = 1;
-          }
-          // If there are any buttons in the queue, add them to the group
-          // (This will overwrite any buttons added to the group previously)
-          if (buttonQueueTotal != 0) {
-            for (int i = 0; i < 25; i++) {
-              for (int j = 0; j < 25; j++) {
-               buttonGroup7[i][j] = buttonQueue[i][j];
-              }
-            }
-           buttonGroup7[24][24] = buttonQueueTotal;
-          }
-        } 
-        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
-          // Fill the button queue (after clearing it)
-          // Clear button queue
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = 255;
-            }
-          }
-          // Fill the queue and renew the total
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = buttonGroup7[i][j];
-            }
-          }
-          buttonQueueTotal = buttonGroup7[24][24];
-          buttonQueue[24][24] = 255; // Clear out the extra total
-        }
-      }
-    }
-
-    // Button group eight
-    if (held >= longHold+700 && held < longHold+800) {
-      if (codes[24].isActive) {
-        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
-          // Clear the group
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-             buttonGroup8[i][j] = 255;
-            }
-          }
-          // If there are any buttons added, set them so in the group
-          if (checkButtonsStatus()) {
-            int currentColumn = 0;
-            for (int i = 0; i < 24; i++) {
-              if (codes[i].isActive) {
-               buttonGroup8[0][currentColumn] = i;
-                currentColumn++;
-              }
-            }
-           buttonGroup8[24][24] = 1;
-          }
-          // If there are any buttons in the queue, add them to the group
-          // (This will overwrite any buttons added to the group previously)
-          if (buttonQueueTotal != 0) {
-            for (int i = 0; i < 25; i++) {
-              for (int j = 0; j < 25; j++) {
-               buttonGroup8[i][j] = buttonQueue[i][j];
-              }
-            }
-           buttonGroup8[24][24] = buttonQueueTotal;
-          }
-        } 
-        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
-          // Fill the button queue (after clearing it)
-          // Clear button queue
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = 255;
-            }
-          }
-          // Fill the queue and renew the total
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = buttonGroup8[i][j];
-            }
-          }
-          buttonQueueTotal = buttonGroup8[24][24];
-          buttonQueue[24][24] = 255; // Clear out the extra total
-        }
-      }
-    }
-
-    // Button group nine
-    if (held >= longHold+800 && held < longHold+900) {
-      if (codes[24].isActive) {
-        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
-          // Clear the group
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-             buttonGroup9[i][j] = 255;
-            }
-          }
-          // If there are any buttons added, set them so in the group
-          if (checkButtonsStatus()) {
-            int currentColumn = 0;
-            for (int i = 0; i < 24; i++) {
-              if (codes[i].isActive) {
-               buttonGroup9[0][currentColumn] = i;
-                currentColumn++;
-              }
-            }
-           buttonGroup9[24][24] = 1;
-          }
-          // If there are any buttons in the queue, add them to the group
-          // (This will overwrite any buttons added to the group previously)
-          if (buttonQueueTotal != 0) {
-            for (int i = 0; i < 25; i++) {
-              for (int j = 0; j < 25; j++) {
-               buttonGroup9[i][j] = buttonQueue[i][j];
-              }
-            }
-           buttonGroup9[24][24] = buttonQueueTotal;
-          }
-        } 
-        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
-          // Fill the button queue (after clearing it)
-          // Clear button queue
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = 255;
-            }
-          }
-          // Fill the queue and renew the total
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = buttonGroup9[i][j];
-            }
-          }
-          buttonQueueTotal = buttonGroup9[24][24];
-          buttonQueue[24][24] = 255; // Clear out the extra total
-        }
-      }
-    }
-
-    // Button group ten
-    if (held >= longHold+900 && held < longHold+1000) {
-      if (codes[24].isActive) {
-        if (checkButtonsStatus() || buttonQueue[0][0] != 255) {
-          // Clear the group
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-             buttonGroup10[i][j] = 255;
-            }
-          }
-          // If there are any buttons added, set them so in the group
-          if (checkButtonsStatus()) {
-            int currentColumn = 0;
-            for (int i = 0; i < 24; i++) {
-              if (codes[i].isActive) {
-               buttonGroup10[0][currentColumn] = i;
-                currentColumn++;
-              }
-            }
-           buttonGroup10[24][24] = 1;
-          }
-          // If there are any buttons in the queue, add them to the group
-          // (This will overwrite any buttons added to the group previously)
-          if (buttonQueueTotal != 0) {
-            for (int i = 0; i < 25; i++) {
-              for (int j = 0; j < 25; j++) {
-               buttonGroup10[i][j] = buttonQueue[i][j];
-              }
-            }
-           buttonGroup10[24][24] = buttonQueueTotal;
-          }
-        } 
-        if (!checkButtonsStatus() && buttonQueue[0][0] == 255) {
-          // Fill the button queue (after clearing it)
-          // Clear button queue
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = 255;
-            }
-          }
-          // Fill the queue and renew the total
-          for (int i = 0; i < 25; i++) {
-            for (int j = 0; j < 25; j++) {
-              buttonQueue[i][j] = buttonGroup10[i][j];
-            }
-          }
-          buttonQueueTotal = buttonGroup10[24][24];
-          buttonQueue[24][24] = 255; // Clear out the extra total
-        }
-      }
-    }
-    
-    // Serial.println(held);
-    // Serial.println(codes[24].isActive);
-    held = 0;
-    released = 0;
+void DEBUG_MORSE() {
+  for (int i = 0; i < 10; i++) {
+    Serial.print(MORSE[i]);
+    Serial.print(" ");
   }
-
-  
-  // Clear button queue when we enter config mode
-  if (codes[24].isActive == true && configModeLast != codes[24].isActive) {
-    for (int i = 0; i < 25; i++) {
-      for (int j = 0; j < 25; j++) {
-        buttonQueue[i][j] = 255;
-      }
-    }
-    buttonQueuePos = 0;
-    buttonQueueTotal = 0;
-    buttonQueue[23][24] = 0;
-  }
-
-  if (codes[24].isActive) {   // codes[24] is our configuration code
-    gp_releaseAll();
-    if (!configModeLast) {
-      // Deactivate all buttons
-      for (int i = 0; i < 24; i++) {
-        codes[i].isActive = false;
-      }
-      // Dump the array 
-      for (int i=0; i < 6; i++) {
-        addToArray(' ');
-      }
-    }
-    
-    // Indicate whether a dot (.), dash (-), or space was entered via LED
-    if (currentCode[5] == '.') {
-      analogWrite(LED1, 0);
-    } else {
-      analogWrite(LED1, 1);
-    }
-    if (currentCode[5] == '-') {
-      analogWrite(LED2, 0);
-    } else {
-      analogWrite(LED2, 1);
-    }
-    if (currentCode[5] == ' ') {
-      analogWrite(LED1, 1);
-      analogWrite(LED2, 1);
-    }
-    
-    for (int i = 0; i < 26; i++) {
-      codes[i].getMatch();
-    }
-    
-  } else {
-    //  Set isActive for current position to true
-    //  when the button is pressed
-    if (buttonPinCurrent == LOW && buttonPinLast == HIGH) {
-      //  Check columns of current row and set isActive to true
-      for (int i = 0; i < 25; i++) {
-        if (buttonQueue[buttonQueuePos][i] != 255) {
-          codes[buttonQueue[buttonQueuePos][i]].isActive = true;
-        } else {
-          break;
-        }
-      }
-    }
-
-    //  While the button is held, send the input
-    if (buttonPinCurrent == LOW && buttonPinLast == LOW) {
-      if (held >= heldTime) {
-        if (codes[0].isActive || codes[1].isActive) {
-          if (codes[0].isActive) {
-            leftAnalog[1] = 32767;    // LEFT STICK UP
-          }
-          if (codes[1].isActive) {
-            leftAnalog[1] = -32767;    // LEFT STICK DOWN
-          }
-        } else {
-          leftAnalog[1] = 0;
-        }
-        if (codes[2].isActive || codes[3].isActive) {
-          if (codes[2].isActive) {
-            leftAnalog[0] = -32767;    // LEFT STICK LEFT
-          }
-          if (codes[3].isActive) {
-            leftAnalog[0] = 32767;    // LEFT STICK RIGHT
-          }
-        } else {
-          leftAnalog[0] = 0;
-        }
-        if (codes[4].isActive) {
-          controller.buttonUpdate(BUTTON_A, 1);
-        }
-        if (codes[5].isActive) {
-          controller.buttonUpdate(BUTTON_B, 1);
-        }
-        if (codes[6].isActive) {
-          controller.buttonUpdate(BUTTON_X, 1);
-        }
-        if (codes[7].isActive) {
-          controller.buttonUpdate(BUTTON_Y, 1);
-        }
-        if (codes[8].isActive) {
-          controller.buttonUpdate(BUTTON_RB, 1);
-        }
-        if (codes[9].isActive) {
-          controller.singleTriggerUpdate(TRIGGER_RIGHT, 255);
-        }
-        if (codes[10].isActive) {
-          controller.buttonUpdate(BUTTON_LB, 1);
-        }
-        if (codes[11].isActive) {
-          controller.singleTriggerUpdate(TRIGGER_LEFT, 255);
-        }
-        if (codes[12].isActive) {
-          controller.buttonUpdate(BUTTON_START, 1);
-        }
-        if (codes[13].isActive) {
-          controller.buttonUpdate(BUTTON_BACK, 1);
-        }
-        if (codes[14].isActive || codes[15].isActive) {
-          if (codes[14].isActive) {
-            rightAnalog[1] = 32767;    // RIGHT STICK UP
-          }
-          if (codes[15].isActive) {
-            rightAnalog[1] = -32767;    // RIGHT STICK DOWN
-          }
-        } else {
-          rightAnalog[1] = 0;
-        }
-        if (codes[16].isActive || codes[17].isActive) {
-          if (codes[16].isActive) {
-            rightAnalog[0] = -32767;    // RIGHT STICK LEFT
-          }
-          if (codes[17].isActive) {
-            rightAnalog[0] = 32767;    // RIGHT STICK RIGHT
-          }
-        } else {
-          rightAnalog[0] = 0;
-        }
-        if (codes[18].isActive) {
-          POVSwitch[0] = 1;
-        } else {
-          POVSwitch[0] = 0;
-        }
-        if (codes[19].isActive) {
-          POVSwitch[1] = 1;
-        } else {
-          POVSwitch[1] = 0;
-        }
-        if (codes[20].isActive) {
-          POVSwitch[2] = 1;
-        } else {
-          POVSwitch[2] = 0;
-        }
-        if (codes[21].isActive) {
-          POVSwitch[3] = 1;
-        } else {
-          POVSwitch[3] = 0;
-        }
-        if (codes[22].isActive) {
-          controller.buttonUpdate(BUTTON_L3, 1);
-        }
-        if (codes[23].isActive) {
-          controller.buttonUpdate(BUTTON_R3, 1);
-        }
-        controller.stickUpdate(STICK_LEFT, leftAnalog[0], leftAnalog[1]);
-        controller.stickUpdate(STICK_RIGHT, rightAnalog[0], rightAnalog[1]);
-        controller.dpadUpdate(POVSwitch[0],POVSwitch[1],POVSwitch[2],POVSwitch[3]); 
-      }
-    }
-
-    //  When the button is released, increment row to total
-    if (buttonPinCurrent == HIGH && buttonPinCurrent != buttonPinLast) {
-      gp_releaseAll();
-      if (buttonQueue[0][0] != 255) {
-        if (buttonQueue[23][24] == 0) {
-          for (int i = 0; i < 24; i++) {
-            codes[i].isActive = false;
-          } 
-          if (buttonQueuePos != buttonQueueTotal-1) {
-            buttonQueuePos++;
-          }
-        } 
-        if (buttonQueue[23][24] == 1) {
-          for (int i = 0; i < 24; i++) {
-            codes[i].isActive = false;
-          } 
-          if (buttonQueuePos != buttonQueueTotal-1) {
-            buttonQueuePos++;
-          } else {
-            buttonQueuePos = 0;
-          }
-        }
-      }
-    }
-    analogWrite(LED1, 0);
-    analogWrite(LED2, 0);
-  }
-  
-  //Play sound when entering and exiting configmode
-  if (codes[24].isActive == true && configModeLast != codes[24].isActive) {
-    tone(speakerPin, note1, delay1);
-    delay(delay1);
-    tone(speakerPin, note2, delay2);
-  }
-  if (codes[24].isActive == false && configModeLast != codes[24].isActive) {
-    tone(speakerPin, note2, delay1);
-    delay(delay1);
-    tone(speakerPin, note1, delay2);
-  }
-  
-  //Send data
-  controller.sendXinput();
-
-  //Receive data
-  controller.receiveXinput();
-  
-  buttonPinLast = buttonPinCurrent;
-  configModeLast = codes[24].isActive;
-  for (int i = 0; i < 25; i++) {
-    codes[i].isActiveLast = codes[i].isActive;
-  }
+  Serial.println();
 }
