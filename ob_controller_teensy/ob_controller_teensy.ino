@@ -22,7 +22,7 @@ int MORSE_MAX = 0;
 const int CODE_MAX = 24;
 const int CODE_LENGTH = 4;
 int CODE[CODE_MAX][CODE_LENGTH] = {
-  {DOT,   0,    0,    0},                          // A
+  {DOT,   0,    0,    0},         // A
   {DASH,  0,    0,    0},         // B
   {DOT,   DOT,  0,    0},         // X
   {DASH,  DASH, 0,    0},         // Y
