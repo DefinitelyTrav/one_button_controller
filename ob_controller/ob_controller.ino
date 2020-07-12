@@ -9,11 +9,14 @@ DebouncedInput BUTTON(BUTTON_PIN);
 const int DOT = 1;
 const int DASH = 2;
 
+const bool STICK_X = true;
+const bool STICK_Y = false;
+
 unsigned long DASH_LENGTH = 125; // Value in milliseconds. DOT_LENGTH would be any value < 125.
 unsigned long RUN_TIME = 150;    // Value in milliseconds. Time after release until press is read and run.
 unsigned long HOLD_TIME = 125;
 
-int MORSE[10];
+int MORSE[100];
 int MORSE_POS = 0;
 int MORSE_MAX = 0;
 unsigned long long CODE_AS_INT = 0;
@@ -25,6 +28,7 @@ void setup() {
   Serial.begin(9600);
 
   XInput.setTriggerRange(0, 100);
+  XInput.setJoystickRange(-100, 100);
 }
 
 void loop() {
@@ -135,6 +139,36 @@ void DPAD_PRESS(XInputControl p, bool b) {
     XInput.setDpad(p, true);
     delay(100);
     XInput.setDpad(p, false);
+  }
+}
+
+void STICK_PRESS(XInputControl s, int32_t v, bool a, bool b, int t = 100) {
+  if (a) {
+    int32_t c = XInput.getJoystickX(s);
+    if (b) {
+      if (c != 0) {
+        XInput.setJoystickX(s, 0);
+      } else {
+        XInput.setJoystickX(s, v);
+      }
+    } else {
+      XInput.setJoystickX(s, v);
+      delay(t);
+      XInput.setJoystickX(s, 0);
+    }
+  } else {
+    int32_t c = XInput.getJoystickY(s);
+    if (b) {
+      if (c != 0) {
+        XInput.setJoystickY(s, 0);
+      } else {
+        XInput.setJoystickY(s, v);
+      }
+    } else {
+      XInput.setJoystickY(s, v);
+      delay(t);
+      XInput.setJoystickY(s, 0);
+    }
   }
 }
 
