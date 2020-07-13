@@ -25,8 +25,12 @@ unsigned long TIME, PRESS_TIME, RELEASE_TIME;
 
 void setup() {
   // put your setup code here, to run once:
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  
+  XInput.begin();
   Serial.begin(9600);
 
+  XInput.setAutoSend(true);
   XInput.setTriggerRange(0, 100);
   XInput.setJoystickRange(-100, 100);
 }
@@ -82,11 +86,8 @@ void loop() {
     CODE_AS_INT = 0;
     
     RELEASE_TIME = 0;
-
-    // Debug
-    XInput.begin();
+    
     Serial.println("RUN");
-   
   }
 }
 
