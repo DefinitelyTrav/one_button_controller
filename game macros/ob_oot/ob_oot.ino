@@ -25,6 +25,8 @@ int32_t Y_LAST = 0;
 
 unsigned long TIME, PRESS_TIME, RELEASE_TIME;
 
+bool HOLD_NEXT = false;
+
 void setup() {
   // put your setup code here, to run once:
   pinMode(BUTTON_PIN, INPUT_PULLUP);
@@ -66,7 +68,7 @@ void loop() {
   }
 
   // If time since release is greater than RUN_TIME, do the needful.
-  if (TIME - RELEASE_TIME == RUN_TIME && BUTTON.high()) {
+  if (TIME - RELEASE_TIME >= RUN_TIME && BUTTON.high()) {
     // Store the current position of MORSE as MORSE_MAX.
     // Subtract one so we have the true max.
     MORSE_MAX = MORSE_POS;
@@ -118,6 +120,7 @@ void BUTTON_PRESS(uint8_t b, bool f) {
     delay(100);
     XInput.setButton(b, false);
   }
+  HOLD_NEXT = false;
 }
 
 void TRIGGER_PRESS(XInputControl t, int32_t v, bool b) {
@@ -133,6 +136,7 @@ void TRIGGER_PRESS(XInputControl t, int32_t v, bool b) {
     delay(100);
     XInput.setTrigger(t, 0);
   }
+  HOLD_NEXT = false;
 }
 
 void DPAD_PRESS(XInputControl p, bool b) {
@@ -143,6 +147,7 @@ void DPAD_PRESS(XInputControl p, bool b) {
     delay(100);
     XInput.setDpad(p, false);
   }
+  HOLD_NEXT = false;
 }
 
 void STICK_PRESS(XInputControl s, int32_t x, int32_t y, bool b, int t = 100) {
@@ -177,24 +182,31 @@ void RUN_MACRO(unsigned long long c) {
   }
   
   switch (c) {
+    //HOLD_NEXT
+    case 22222:
+      if (!HOLD_NEXT) {
+        HOLD_NEXT = true;
+      }
+      break;
+    
     // Button presses
     case 2:         
-      BUTTON_PRESS(BUTTON_A, false);
+      BUTTON_PRESS(BUTTON_A, HOLD_NEXT);
       break;
     case 1: 
-      BUTTON_PRESS(BUTTON_B, false);
+      BUTTON_PRESS(BUTTON_B, HOLD_NEXT);
       break;
     case 211: 
-      BUTTON_PRESS(BUTTON_X, false);
+      BUTTON_PRESS(BUTTON_X, HOLD_NEXT);
       break;
     case 112: 
-      BUTTON_PRESS(BUTTON_Y, false);
+      BUTTON_PRESS(BUTTON_Y, HOLD_NEXT);
       break;
     case 2221: 
-      BUTTON_PRESS(BUTTON_LB, false);
+      BUTTON_PRESS(BUTTON_LB, HOLD_NEXT);
       break;
     case 212: 
-      BUTTON_PRESS(BUTTON_RB, false);
+      BUTTON_PRESS(BUTTON_RB, HOLD_NEXT);
       break;
     case 2111:
       TRIGGER_PRESS(TRIGGER_LEFT, 100, false);
@@ -210,16 +222,16 @@ void RUN_MACRO(unsigned long long c) {
       BUTTON_PRESS(BUTTON_START, false);
       break;
     case 2112:
-      DPAD_PRESS(DPAD_UP, false);
+      DPAD_PRESS(DPAD_UP, HOLD_NEXT);
       break;
     case 1221:
-      DPAD_PRESS(DPAD_DOWN, false);
+      DPAD_PRESS(DPAD_DOWN, HOLD_NEXT);
       break;
     case 1211:
-      DPAD_PRESS(DPAD_LEFT, false);
+      DPAD_PRESS(DPAD_LEFT, HOLD_NEXT);
       break;
     case 1121:
-      DPAD_PRESS(DPAD_RIGHT, false);
+      DPAD_PRESS(DPAD_RIGHT, HOLD_NEXT);
       break;
       
     // Turns
