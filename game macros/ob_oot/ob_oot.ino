@@ -23,6 +23,7 @@ void setup() {
 }
 
 void loop() {
+  RUN_MACRO(runOnMorse.getCode());
 }
 
 void BUTTON_PRESS(uint8_t b, bool f) {
