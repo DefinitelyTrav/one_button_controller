@@ -2,8 +2,10 @@
 #include <runOnMorse.h>
 #include <GameMacros.h>
 
-runOnMorse runOnMorse(1);
-GameMacros GameMacros(OOT);
+runOnMorse runOnMorse(2);
+
+// GameMacros GameMacros(OOT);    // The Legend of Zelda: Ocarina of Time
+GameMacros GameMacros(FG);        // Fall Guys
 
 void setup() {
   XInput.begin();
